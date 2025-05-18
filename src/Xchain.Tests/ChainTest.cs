@@ -1,37 +1,30 @@
 namespace Xchain.Tests;
 
 [TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
-public class ChainTest(TestChainFixture testChain) : IClassFixture<TestChainFixture>
+public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 {
     [ChainFact, Link(3)]
-    public void Test1()
+    public void Test1() => chain.LinkUnless<Exception>((output) =>
     {
-        testChain.LinkUnless<Exception>((output) =>
-        {
-            throw new NotImplementedException();
-        });
-    }
+        throw new NotImplementedException();
+    });
+
 
     [ChainFact, Link(2)]
-    public void Test2()
+    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
     {
-        testChain.LinkUnless<NotImplementedException>((output) =>
-        {
-            var sleep = output.Get<int>("Sleep");
-            Thread.Sleep(sleep);
-        });
-    }
+        var sleep = output.Get<int>("Sleep");
+        Thread.Sleep(sleep);
+    });
+    
 
     [ChainFact, Link(1)]
-    public void Test3()
-    {        
-        testChain.Link((output) =>
-        {
-            var sleep = 1000;
-            Thread.Sleep(sleep);
-            output["Sleep"] = sleep * 2;
+    public void Test3() => chain.Link((output) =>
+    {
+        var sleep = 1000;
+        Thread.Sleep(sleep);
+        output["Sleep"] = sleep * 2;
 
-            throw new TimeoutException();
-        });
-    }
+        throw new TimeoutException();
+    });
 }
