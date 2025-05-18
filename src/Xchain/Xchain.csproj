@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.1</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<LangVersion>10</LangVersion>
+		<LangVersion>12</LangVersion>		
+		<IsPackable>true</IsPackable>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
@@ -17,19 +18,19 @@
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageReadmeFile>README.md</PackageReadmeFile>		
-		<PackageId>Xchain</PackageId>
-		<AssemblyName>Xchain</AssemblyName>
+		<PackageId>xchain</PackageId>
+		<AssemblyName>xchain</AssemblyName>
 		<RootNamespace>Xchain</RootNamespace>
-		<Description>Xchain</Description>
-		<PackageTags>Xchain</PackageTags>
-		<RepositoryUrl>https://github.com/Jandini/Xchain</RepositoryUrl>
-		<PackageProjectUrl>https://github.com/Jandini/Xchain</PackageProjectUrl>
+		<Description>Xchain provides Xunit fixtures to chain tests, share results, and skip tests on failure.</Description>
+		<PackageTags>xchain xunit</PackageTags>
+		<RepositoryUrl>https://github.com/Jandini/xchain</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/Jandini/xchain</PackageProjectUrl>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="..\..\icon.png" Pack="true" PackagePath=""/>
+		<None Include="..\..\icon.png" Pack="true" PackagePath="" />
 		<None Include="..\..\LICENSE" Pack="true" PackagePath="" />
-		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -37,5 +38,8 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="xunit.abstractions" Version="2.0.3" />
+		<PackageReference Include="xunit.extensibility.core" Version="2.9.3" />
 	</ItemGroup>
 </Project>
