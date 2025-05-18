@@ -47,7 +47,7 @@ public static class TestChainExtensions
         }
         catch (Exception ex)
         {
-            fixture.Errors.Push(new TestChainException(ex, callerName, callerFilePath, callerLineNumber));
+            fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
             throw;
         }
     }
@@ -74,7 +74,7 @@ public static class TestChainExtensions
         }
         catch (Exception ex)
         {
-            fixture.Errors.Push(new TestChainException(ex, callerName, callerFilePath, callerLineNumber));
+            fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
             throw;
         }
     }
@@ -98,7 +98,7 @@ public static class TestChainExtensions
         }
         catch (Exception ex)
         {
-            fixture.Errors.Push(new TestChainException(ex, callerName, callerFilePath, callerLineNumber));
+            fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
             throw;
         }
     }
@@ -125,7 +125,7 @@ public static class TestChainExtensions
         }
         catch (Exception ex)
         {
-            fixture.Errors.Push(new TestChainException(ex, callerName, callerFilePath, callerLineNumber));
+            fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
             throw;
         }
     }
