@@ -14,6 +14,100 @@ Xchain extends xUnit with a fluent mechanism to chain tests, pass data between t
 - **Automatic exception capture** for reporting/debugging
 
 
+
+### 🧪 Chained Test Execution with Xchain
+
+This test collection demonstrates how Xchain tracks failures and skips dependent tests in a chain.
+
+```csharp
+[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
+public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+{
+    [ChainFact, Link(3)]
+    public void Test1() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException(); // Skipped due to previous Exception
+    });
+
+    [ChainFact, Link(2)]
+    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
+    {
+        var sleep = output.Get<int>("Sleep");
+        Thread.Sleep(sleep); // Succeeds, runs before NotImplementedException happens
+    });
+
+    [ChainFact, Link(1)]
+    public void Test3() => chain.Link((output) =>
+    {
+        var sleep = 100;
+        Thread.Sleep(sleep);
+        output["Sleep"] = sleep * 2;
+        throw new TimeoutException(); // Root failure
+    });
+
+    [ChainFact, Link(4)]
+    public void Test4() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException(); // Skipped due to Test1 being skipped
+    });
+
+    [ChainFact, Link(5)]
+    public void Test5() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException(); // Skipped due to Test4 being skipped
+    });
+}
+```
+
+### 🔎 Output
+
+```text
+Xchain.Tests.ChainTest.Test3              // ❌ Test3 failed (root failure)
+  Source: ChainTest.cs line 22
+  Duration: 104 ms
+  Message:                                   
+    System.TimeoutException : The operation has timed out.    
+
+Xchain.Tests.ChainTest.Test2              // ✅ Test2 ran successfully
+  Source: ChainTest.cs line 14
+  Duration: 209 ms                                       
+
+Xchain.Tests.ChainTest.Test1              // ⚠️ Skipped due to Test3 failure
+  Source: ChainTest.cs line 7
+  Duration: 1 ms
+  Message:
+    Test3 failed in ChainTest.cs line 22.
+    The operation has timed out.                          
+
+Xchain.Tests.ChainTest.Test4              // ⚠️ Skipped due to Test1 being skipped
+  Source: ChainTest.cs line 32
+  Duration: 1 ms
+  Message:
+    Test1 skipped in ChainTest.cs line 7.
+    Test3 failed in ChainTest.cs line 22.
+    The operation has timed out.                          
+
+Xchain.Tests.ChainTest.Test5              // ⚠️ Skipped due to Test4 → Test1 → Test3 chain
+  Source: ChainTest.cs line 38
+  Duration: 1 ms
+  Message:
+    Test4 skipped in ChainTest.cs line 32.
+    Test1 skipped in ChainTest.cs line 7.
+    Test3 failed in ChainTest.cs line 22.
+    The operation has timed out.                          
+```
+
+### 📘 Summary
+
+- **Test3** fails with a `TimeoutException` — it is the root failure.
+- **Test2** succeeds — it only skips on `NotImplementedException`, which did not occur.
+- **Test1** is skipped because it depends on any `Exception`, and Test3 failed.
+- **Test4** is skipped because Test1 was skipped.
+- **Test5** is skipped because Test4 was skipped — demonstrating deep chaining.
+
+
+
+
 ### 🧪 Example 1: Ordered Execution with `[Link]`
 
 This demonstrates using the `LinkOrderer` to control test run sequence based on the provided order value.
@@ -104,6 +198,11 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 ➡️ **What it shows**:
 - `LinkUnless<T>` skips the test if a matching exception occurred earlier.
 - `Link` captures and records exceptions for dependent tests to react to.
+
+
+
+
+
 
 
 ---
