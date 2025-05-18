@@ -8,9 +8,7 @@ Xchain provides Xunit fixtures to chain tests, share results, and skip tests on 
 
 Use `LinkOrderer` to run the test cases in given order. 
 
-```C#
-namespace Xchain.Tests;
-
+```c#
 [TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
 public class ChainTest
 {
@@ -30,6 +28,44 @@ public class ChainTest
     public void Test3()
     {
         Thread.Sleep(2000);
+    }
+}
+```
+
+
+Use `TestChainFixture` to pass output from one test case to another.
+
+```c#
+[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
+public class ChainTest(TestChainFixture testChain) : IClassFixture<TestChainFixture>
+{
+    [Fact, Link(3)]
+    public void Test1()
+    {
+        try
+        {
+            throw new NotImplementedException();
+        }
+        catch (Exception ex)        
+        {
+            testChain.Errors.Push(ex);
+        }
+
+    }
+
+    [Fact, Link(2)]
+    public void Test2()
+    {
+        var sleep = (int)testChain.Output["Sleep"];
+        Thread.Sleep(sleep);
+    }
+
+    [Fact, Link(1)]
+    public void Test3()
+    {
+        var sleep = 1000;
+        Thread.Sleep(sleep);
+        testChain.Output["Sleep"] = sleep * 2;
     }
 }
 ```
