@@ -8,7 +8,7 @@ Xchain extends xUnit with a fluent mechanism to chain tests, pass data between t
 
 ### Key Features
 
-- **Custom test ordering** via `[Link(order)]`
+- **Custom test ordering** via `Link` attribute
 - **Shared output** across chained tests using `TestChainFixture`
 - **Failure-aware execution** — skip dependent tests if prior ones failed
 - **Automatic exception capture** for reporting/debugging
@@ -108,7 +108,7 @@ Xchain.Tests.ChainTest.Test5              // ⚠️ Skipped due to Test4 → Tes
 
 
 
-### 🧪 Example 1: Ordered Execution with `[Link]`
+### 🧪 Example 1: Ordered Execution with `Link` attribute
 
 This demonstrates using the `LinkOrderer` to control test run sequence based on the provided order value.
 
@@ -200,9 +200,50 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 - `Link` captures and records exceptions for dependent tests to react to.
 
 
+### Xchain `LinkUnless` Async 
+
+Following code demonstrate usage of `LinkUnlessAsync` method.
+
+```c# 
+[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
+public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+{
+    [ChainFact, Link(3)]
+    public void Test1() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException();
+    });
 
 
+    [ChainFact, Link(2)]
+    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
+    {
+        var sleep = output.Get<int>("Sleep");
+        await Task.Delay(sleep, cancellationToken);
+    });
+    
 
+    [ChainFact, Link(1)]
+    public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
+    {
+        const int sleep = 1000;
+        output["Sleep"] = sleep;
+        await Task.Delay(sleep, cancellationToken);
+    }, TimeSpan.FromMilliseconds(100));
+
+    [ChainFact, Link(4)]
+    public void Test4() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException();
+    });
+
+    [ChainFact, Link(5)]
+    public void Test5() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException();
+    });
+}
+```
 
 
 ---
