@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Threading;
 using Xunit;
 
 namespace Xchain;
@@ -87,14 +88,16 @@ public static class TestChainExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static async Task LinkAsync(this TestChainFixture fixture, Func<TestChainOutput, Task> linkAction,
+    public static async Task LinkAsync(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
+        TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1)
     {
         try
         {
-            await linkAction(fixture.Output);
+            using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
+            await linkAction(fixture.Output, cts.Token);
         }
         catch (Exception ex)
         {
@@ -112,7 +115,8 @@ public static class TestChainExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static async Task LinkUnlessAsync<T>(this TestChainFixture fixture, Func<TestChainOutput, Task> linkAction,
+    public static async Task LinkUnlessAsync<T>(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
+        TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1) where T : Exception
@@ -121,7 +125,8 @@ public static class TestChainExtensions
         {
             var exception = fixture.Errors.FirstOrDefault(ex => ex.InnerException is T);
             Skip.If(exception is not null, exception?.Message);
-            await linkAction(fixture.Output);
+            using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
+            await linkAction(fixture.Output, cts.Token  );
         }
         catch (Exception ex)
         {
