@@ -11,22 +11,20 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 
 
     [ChainFact, Link(2)]
-    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
+    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
         var sleep = output.Get<int>("Sleep");
-        Thread.Sleep(sleep);
+        await Task.Delay(sleep, cancellationToken);
     });
     
 
     [ChainFact, Link(1)]
-    public void Test3() => chain.Link((output) =>
+    public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
     {
-        var sleep = 100;
-        Thread.Sleep(sleep);
-        output["Sleep"] = sleep * 2;
-
-        throw new TimeoutException();
-    });
+        const int sleep = 1000;
+        output["Sleep"] = sleep;
+        await Task.Delay(sleep, cancellationToken);
+    }, TimeSpan.FromMilliseconds(100));
 
     [ChainFact, Link(4)]
     public void Test4() => chain.LinkUnless<Exception>((output) =>
