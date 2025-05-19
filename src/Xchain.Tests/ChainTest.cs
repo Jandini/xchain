@@ -4,14 +4,14 @@ namespace Xchain.Tests;
 public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 {
     [ChainFact, Link(3)]
-    public void Test1() => chain.LinkUnless<Exception>((output) =>
+    public void Test1_MustSkip() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
 
 
     [ChainFact, Link(2)]
-    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
+    public void Test2_MustPass() => chain.LinkUnless<NotImplementedException>((output) =>
     {
         var sleep = output.Get<int>("Sleep");
         Thread.Sleep(sleep);
@@ -19,7 +19,7 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     
 
     [ChainFact, Link(1)]
-    public void Test3() => chain.Link((output) =>
+    public void Test3_MustSkip() => chain.Link((output) =>
     {
         var sleep = 100;
         Thread.Sleep(sleep);
@@ -29,13 +29,13 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     });
 
     [ChainFact, Link(4)]
-    public void Test4() => chain.LinkUnless<Exception>((output) =>
+    public void Test4_MustSkip() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
 
     [ChainFact, Link(5)]
-    public void Test5() => chain.LinkUnless<Exception>((output) =>
+    public void Test5_MustSkip() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
