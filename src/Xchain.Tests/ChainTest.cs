@@ -19,6 +19,7 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     
 
     [ChainFact, Link(1)]
+    [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
     public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
     {
         const int sleep = 1000;
