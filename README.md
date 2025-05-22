@@ -12,6 +12,7 @@ Xchain extends xUnit with a fluent mechanism to chain tests, pass data between t
 - **Shared output** across chained tests using `TestChainFixture`
 - **Failure-aware execution** — skip dependent tests if prior ones failed
 - **Automatic exception capture** for reporting/debugging
+- **Flexible Trait metadata** via attributes
 
 
 
@@ -243,6 +244,51 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
         throw new NotImplementedException();
     });
 }
+```
+
+
+
+## 🔗 Flexible Trait Metadata via Attributes
+
+xChain supports attaching **custom metadata** to your test methods using **any attribute** that implements `ITraitAttribute`. These attributes are automatically discovered and their public properties are converted into xUnit traits at runtime.
+
+### ✅ How It Works
+
+1. Implement your own attribute class.
+2. Decorate it with `[TraitDiscoverer("Xchain.TestChainTraitDiscoverer", "Xchain")]`.
+3. Add public properties — these become traits.
+4. Use the attribute on your test method.
+
+---
+
+### 🧪 Example: Define a Custom Attribute
+
+```csharp
+using Xunit.Sdk;
+
+[TraitDiscoverer("Xchain.TestChainTraitDiscoverer", "Xchain")]
+[AttributeUsage(AttributeTargets.Method)]
+public class ChainTagAttribute(string? owner = null, string? category = null, string? color = null)
+    : Attribute, ITraitAttribute
+{
+    public string? Owner { get; set; } = owner;
+    public string? Category { get; set; } = category;
+    public string? Color { get; set; } = color;
+}
+```
+
+This code demonstrates how to annotate any test case with custom metadata using ChainTag, which is automatically exposed as xUnit traits.
+
+```csharp
+
+    [ChainFact, Link(1)]
+    [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
+    public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
+    {
+        const int sleep = 1000;
+        output["Sleep"] = sleep;
+        await Task.Delay(sleep, cancellationToken);
+    }, TimeSpan.FromMilliseconds(100));
 ```
 
 
