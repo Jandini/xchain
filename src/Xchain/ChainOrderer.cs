@@ -12,8 +12,8 @@ public class ChainOrderer : ITestCaseOrderer
             var factAttr = method.GetCustomAttributes(typeof(ChainFactAttribute).AssemblyQualifiedName).FirstOrDefault();
             var theoryAttr = method.GetCustomAttributes(typeof(ChainTheoryAttribute).AssemblyQualifiedName).FirstOrDefault();
 
-            int order = factAttr?.GetNamedArgument<int>(nameof(ChainFactAttribute.Order))
-                        ?? theoryAttr?.GetNamedArgument<int>(nameof(ChainTheoryAttribute.Order))
+            int order = factAttr?.GetNamedArgument<int>(nameof(ChainFactAttribute.Link))
+                        ?? theoryAttr?.GetNamedArgument<int>(nameof(ChainTheoryAttribute.Link))
                         ?? 0;
 
             return new { TestCase = tc, Order = order };
