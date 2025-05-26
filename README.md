@@ -5,9 +5,8 @@
 
 Xchain extends xUnit with a fluent mechanism to **chain tests**, **pass data**, and **skip dependent tests** if previous ones fail — ideal for integration or system tests with interdependencies.
 
----
 
-## ✨ Features
+## Features
 
 - **Chained execution**: Tests can conditionally run based on previous outcomes.
 - **Shared output state**: Tests exchange data via `TestChainFixture`.
@@ -17,9 +16,8 @@ Xchain extends xUnit with a fluent mechanism to **chain tests**, **pass data**, 
 - **Zero-padded sorting**: Use `Pad` to ensure consistent numeric display alignment.
 - **Custom metadata**: Add test traits via simple attribute classes.
 
----
 
-## 🧪 Example: Chained Execution with Display Names
+## Example: Chained Execution with Display Names
 
 ```csharp
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
@@ -74,7 +72,6 @@ Each test is displayed as:
 
 If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#10`, `#15`).
 
----
 
 ## Fluent Chaining Methods
 
@@ -82,7 +79,6 @@ If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#
 - `LinkUnless<TException>` — skips test if exception `TException` was previously thrown  
 - `LinkAsync` / `LinkUnlessAsync<TException>` — async equivalents  
 
----
 
 ## Sharing Data Across Tests
 
@@ -104,7 +100,6 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 }
 ```
 
----
 
 ## Skipping on Previous Failures
 
@@ -119,7 +114,6 @@ public void Dependent() => chain.LinkUnless<Exception>((output) =>
 });
 ```
 
----
 
 ## Traits with Custom Attributes
 
@@ -145,19 +139,17 @@ Usage:
 public void TaggedTest() => ...
 ```
 
----
 
 ## Test Output Preview
 
 ```
-Xchain.Tests.ChainTest.#1 | Sleep 1 second        ✅ Passed
-Xchain.Tests.ChainTest.#2 | Sleep 2 seconds       ✅ Passed
-Xchain.Tests.ChainTest.#3 | Throw Exception       ❌ Failed
-Xchain.Tests.ChainTest.#4 | Fails again           ⚠️ Skipped due to prior failure
-Xchain.Tests.ChainTest.#5 | Yet another fail      ⚠️ Skipped due to prior failure
+Xchain.Tests.ChainTest: #1 | Sleep 1 second        ✅ Passed
+Xchain.Tests.ChainTest: #2 | Sleep 2 seconds       ✅ Passed
+Xchain.Tests.ChainTest: #3 | Throw Exception       ❌ Failed
+Xchain.Tests.ChainTest: #4 | Fails again           ⚠️ Skipped due to prior failure
+Xchain.Tests.ChainTest: #5 | Yet another fail      ⚠️ Skipped due to prior failure
 ```
 
----
 
 ## Summary
 
