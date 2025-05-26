@@ -3,242 +3,57 @@
 [![Build](https://github.com/Jandini/Xchain/actions/workflows/build.yml/badge.svg)](https://github.com/Jandini/Xchain/actions/workflows/build.yml)
 [![NuGet](https://github.com/Jandini/Xchain/actions/workflows/nuget.yml/badge.svg)](https://github.com/Jandini/Xchain/actions/workflows/nuget.yml)
 
-Xchain extends xUnit with a fluent mechanism to chain tests, pass data between them, and skip dependent tests if earlier ones fail. It improves test readability and flow control when writing integration or system-level tests that have interdependencies.
-
-
-### Key Features
-
-- **Custom test ordering** via `Link` attribute
-- **Shared output** across chained tests using `TestChainFixture`
-- **Failure-aware execution** — skip dependent tests if prior ones failed
-- **Automatic exception capture** for reporting/debugging
-- **Flexible Trait metadata** via attributes
-
-
-
-### 🧪 Chained Test Execution with Xchain
-
-This test collection demonstrates how Xchain tracks failures and skips dependent tests in a chain.
-
-```csharp
-[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
-public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
-{
-    [ChainFact, Link(3)]
-    public void Test1() => chain.LinkUnless<Exception>((output) =>
-    {
-        throw new NotImplementedException(); // Skipped due to previous Exception
-    });
-
-    [ChainFact, Link(2)]
-    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
-    {
-        var sleep = output.Get<int>("Sleep");
-        Thread.Sleep(sleep); // Succeeds, runs before NotImplementedException happens
-    });
-
-    [ChainFact, Link(1)]
-    public void Test3() => chain.Link((output) =>
-    {
-        var sleep = 100;
-        Thread.Sleep(sleep);
-        output["Sleep"] = sleep * 2;
-        throw new TimeoutException(); // Root failure
-    });
-
-    [ChainFact, Link(4)]
-    public void Test4() => chain.LinkUnless<Exception>((output) =>
-    {
-        throw new NotImplementedException(); // Skipped due to Test1 being skipped
-    });
-
-    [ChainFact, Link(5)]
-    public void Test5() => chain.LinkUnless<Exception>((output) =>
-    {
-        throw new NotImplementedException(); // Skipped due to Test4 being skipped
-    });
-}
-```
-
-### 🔎 Output
-
-```text
-Xchain.Tests.ChainTest.Test3              // ❌ Test3 failed (root failure)
-  Source: ChainTest.cs line 22
-  Duration: 104 ms
-  Message:                                   
-    System.TimeoutException : The operation has timed out.    
-
-Xchain.Tests.ChainTest.Test2              // ✅ Test2 ran successfully
-  Source: ChainTest.cs line 14
-  Duration: 209 ms                                       
-
-Xchain.Tests.ChainTest.Test1              // ⚠️ Skipped due to Test3 failure
-  Source: ChainTest.cs line 7
-  Duration: 1 ms
-  Message:
-    Test3 failed in ChainTest.cs line 22.
-    The operation has timed out.                          
-
-Xchain.Tests.ChainTest.Test4              // ⚠️ Skipped due to Test1 being skipped
-  Source: ChainTest.cs line 32
-  Duration: 1 ms
-  Message:
-    Test1 skipped in ChainTest.cs line 7.
-    Test3 failed in ChainTest.cs line 22.
-    The operation has timed out.                          
-
-Xchain.Tests.ChainTest.Test5              // ⚠️ Skipped due to Test4 → Test1 → Test3 chain
-  Source: ChainTest.cs line 38
-  Duration: 1 ms
-  Message:
-    Test4 skipped in ChainTest.cs line 32.
-    Test1 skipped in ChainTest.cs line 7.
-    Test3 failed in ChainTest.cs line 22.
-    The operation has timed out.                          
-```
-
-### 📘 Summary
-
-- **Test3** fails with a `TimeoutException` — it is the root failure.
-- **Test2** succeeds — it only skips on `NotImplementedException`, which did not occur.
-- **Test1** is skipped because it depends on any `Exception`, and Test3 failed.
-- **Test4** is skipped because Test1 was skipped.
-- **Test5** is skipped because Test4 was skipped — demonstrating deep chaining.
-
-
-
-
-### 🧪 Example 1: Ordered Execution with `Link` attribute
-
-This demonstrates using the `LinkOrderer` to control test run sequence based on the provided order value.
-
-```csharp
-[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
-public class ChainTest
-{
-    [Fact, Link(1)] public void Test1() => Thread.Sleep(1000);
-    [Fact, Link(3)] public void Test2() => Thread.Sleep(3000);
-    [Fact, Link(2)] public void Test3() => Thread.Sleep(2000);
-}
-```
-
-➡️ **What it shows**: Tests will run in the order 1 → 3 → 2 based on their `[Link(x)]` values, not alphabetically or by name.
-
-
-### 🧪 Example 2: Sharing Data with `TestChainFixture`
-
-This example shows how test output values and errors can be shared across test methods using the fixture.
-
-```csharp
-[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
-public class ChainTest(TestChainFixture testChain) : IClassFixture<TestChainFixture>
-{
-    [Fact, Link(3)]
-    public void Test1() => testChain.Errors.Push(new NotImplementedException());
-
-    [Fact, Link(2)]
-    public void Test2()
-    {
-        var sleep = (int)testChain.Output["Sleep"];
-        Thread.Sleep(sleep);
-    }
-
-    [Fact, Link(1)]
-    public void Test3()
-    {
-        var sleep = 1000;
-        testChain.Output["Sleep"] = sleep * 2;
-        Thread.Sleep(sleep);
-    }
-}
-```
-
-➡️ **What it shows**:  
-- `Test3` sets shared output.  
-- `Test2` reads that output and uses it.  
-- `Test1` pushes an error manually to simulate a failure.
+Xchain extends xUnit with a fluent mechanism to **chain tests**, **pass data**, and **skip dependent tests** if previous ones fail — ideal for integration or system tests with interdependencies.
 
 ---
 
-### 🧪 Example 3: Skipping on Error with `Link` and `LinkUnless`
+## ✨ Features
 
-This uses the fluent API to automatically skip tests based on prior failures.
+- **Chained execution**: Tests can conditionally run based on previous outcomes.
+- **Shared output state**: Tests exchange data via `TestChainFixture`.
+- **Skips on failure**: Later tests are skipped if earlier ones fail.
+- **Custom ordering**: Tests are run in a defined sequence using `Link`.
+- **Named tests**: Set display name with `Name`, auto-prepended with `# Link`.
+- **Zero-padded sorting**: Use `Pad` to ensure consistent numeric display alignment.
+- **Custom metadata**: Add test traits via simple attribute classes.
+
+---
+
+## 🧪 Example: Chained Execution with Display Names
 
 ```csharp
-[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
+[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
 public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 {
-    [ChainFact, Link(3)]
+    [ChainFact(Link = 3, Name = "Throw Exception")]
     public void Test1() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
 
-
-    [ChainFact, Link(2)]
-    public void Test2() => chain.LinkUnless<NotImplementedException>((output) =>
-    {
-        var sleep = output.Get<int>("Sleep");
-        Thread.Sleep(sleep);
-    });
-    
-
-    [ChainFact, Link(1)]
-    public void Test3() => chain.Link((output) =>
-    {
-        var sleep = 1000;
-        Thread.Sleep(sleep);
-        output["Sleep"] = sleep * 2;
-
-        throw new TimeoutException();
-    });
-}
-```
-
-➡️ **What it shows**:
-- `LinkUnless<T>` skips the test if a matching exception occurred earlier.
-- `Link` captures and records exceptions for dependent tests to react to.
-
-
-### Xchain `LinkUnless` Async 
-
-Following code demonstrate usage of `LinkUnlessAsync` method.
-
-```c# 
-[TestCaseOrderer("Xchain.LinkOrderer", "Xchain")]
-public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
-{
-    [ChainFact, Link(3)]
-    public void Test1() => chain.LinkUnless<Exception>((output) =>
-    {
-        throw new NotImplementedException();
-    });
-
-
-    [ChainFact, Link(2)]
+    [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
     public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
         var sleep = output.Get<int>("Sleep");
         await Task.Delay(sleep, cancellationToken);
     });
-    
 
-    [ChainFact, Link(1)]
+    [ChainFact(Link = 1, Name = "Sleep 1 second", Pad = 2)]
+    [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
     public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
     {
         const int sleep = 1000;
-        output["Sleep"] = sleep;
+        output["Sleep"] = sleep * 2;
         await Task.Delay(sleep, cancellationToken);
     }, TimeSpan.FromMilliseconds(100));
 
-    [ChainFact, Link(4)]
+    [ChainFact(Link = 4, Name = "Fails again")]
     public void Test4() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
 
-    [ChainFact, Link(5)]
+    [ChainFact(Link = 5, Name = "Yet another fail")]
     public void Test5() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
@@ -246,27 +61,72 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 }
 ```
 
+Each test is displayed as:
 
+```
+#01 | Sleep 1 second
+#2 | Sleep 2 seconds
+#3 | Throw Exception
+#4 | Fails again
+#5 | Yet another fail
 
-## 🔗 Flexible Trait Metadata via Attributes
+```
 
-xChain supports attaching **custom metadata** to your test methods using **any attribute** that implements `ITraitAttribute`. These attributes are automatically discovered and their public properties are converted into xUnit traits at runtime.
-
-### ✅ How It Works
-
-1. Implement your own attribute class.
-2. Decorate it with `[TraitDiscoverer("Xchain.TestChainTraitDiscoverer", "Xchain")]`.
-3. Add public properties — these become traits.
-4. Use the attribute on your test method.
+If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#10`, `#15`).
 
 ---
 
-### 🧪 Example: Define a Custom Attribute
+## Fluent Chaining Methods
+
+- `Link` — executes and captures exceptions  
+- `LinkUnless<TException>` — skips test if exception `TException` was previously thrown  
+- `LinkAsync` / `LinkUnlessAsync<TException>` — async equivalents  
+
+---
+
+## Sharing Data Across Tests
+
+Xchain uses a `TestChainFixture` to share both output values and captured exceptions.
 
 ```csharp
-using Xunit.Sdk;
+[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+{
+    [ChainFact(Link = 1, Name = "Setup")]
+    public void Test1() => chain.Output["Sleep"] = 1500;
 
-[TraitDiscoverer("Xchain.TestChainTraitDiscoverer", "Xchain")]
+    [ChainFact(Link = 2, Name = "Sleep using shared value")]
+    public void Test2()
+    {
+        var sleep = (int)chain.Output["Sleep"];
+        Thread.Sleep(sleep);
+    }
+}
+```
+
+---
+
+## Skipping on Previous Failures
+
+```csharp
+[ChainFact(Link = 3, Name = "Failing Root")]
+public void Root() => throw new TimeoutException();
+
+[ChainFact(Link = 4, Name = "Skip if Exception")]
+public void Dependent() => chain.LinkUnless<Exception>((output) =>
+{
+    // This test will be skipped
+});
+```
+
+---
+
+## Traits with Custom Attributes
+
+You can define custom metadata for filtering and categorization.
+
+```csharp
+[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]
 [AttributeUsage(AttributeTargets.Method)]
 public class ChainTagAttribute(string? owner = null, string? category = null, string? color = null)
     : Attribute, ITraitAttribute
@@ -277,25 +137,41 @@ public class ChainTagAttribute(string? owner = null, string? category = null, st
 }
 ```
 
-This code demonstrates how to annotate any test case with custom metadata using ChainTag, which is automatically exposed as xUnit traits.
+Usage:
 
 ```csharp
-
-    [ChainFact, Link(1)]
-    [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
-    public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
-    {
-        const int sleep = 1000;
-        output["Sleep"] = sleep;
-        await Task.Delay(sleep, cancellationToken);
-    }, TimeSpan.FromMilliseconds(100));
+[ChainFact(Link = 1, Name = "Custom Tagged")]
+[ChainTag(Owner = "Dev", Category = "Regression", Color = "Red")]
+public void TaggedTest() => ...
 ```
-
 
 ---
 
-Created from [JandaBox](https://github.com/Jandini/JandaBox)
+## Test Output Preview
 
-Box icon created by [Freepik - Flaticon](https://www.flaticon.com/free-icons/box)
+```
+Xchain.Tests.ChainTest.#1 | Sleep 1 second        ✅ Passed
+Xchain.Tests.ChainTest.#2 | Sleep 2 seconds       ✅ Passed
+Xchain.Tests.ChainTest.#3 | Throw Exception       ❌ Failed
+Xchain.Tests.ChainTest.#4 | Fails again           ⚠️ Skipped due to prior failure
+Xchain.Tests.ChainTest.#5 | Yet another fail      ⚠️ Skipped due to prior failure
+```
 
-Powered by [Xunit.SkippableFact](https://github.com/AArnott/Xunit.SkippableFact)
+---
+
+## Summary
+
+| Feature              | Description |
+|----------------------|-------------|
+| `ChainFact(Link)`    | Defines order and enables chaining |
+| `Name`               | Sets test display name (with `#Link`) |
+| `Pad`                | Pads link number (e.g., `#01`) |
+| `LinkUnless<T>`      | Skips if specific exception occurred |
+| `Output[...]`        | Share data between tests |
+| `ChainTagAttribute`  | Adds test traits dynamically |
+
+---
+
+- Powered by [Xunit.SkippableFact](https://github.com/AArnott/Xunit.SkippableFact)
+- Created from [JandaBox](https://github.com/Jandini/JandaBox)
+- Box icon by [Freepik – Flaticon](https://www.flaticon.com/free-icons/box)
