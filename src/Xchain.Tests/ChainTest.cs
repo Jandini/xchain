@@ -30,7 +30,8 @@ public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     [ChainFact(Link = 4, Name = "Throw Exception")]
     public void Test4() => chain.LinkUnless<Exception>((output) =>
     {
-        throw new NotImplementedException();
+        var sleep = output.Get("Sleep");
+        throw new NotImplementedException($"Partially implemented sleep of {sleep} ms");
     });
 
     [ChainFact(Link = 5, Name = "Throw Exception")]
