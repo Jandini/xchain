@@ -1,7 +1,11 @@
+[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
+[assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 0)]
+
 namespace Xchain.Tests;
 
+[Collection("ChainTest")]
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class ChainTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+public class ChainTest(TestChainFixture chain) 
 {
     [ChainFact(Link = 3, Name = "Throw Exception")]
     public void Test1() => chain.LinkUnless<Exception>((output) =>
