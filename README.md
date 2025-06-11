@@ -162,6 +162,137 @@ Xchain.Tests.ChainTest: #5 | Yet another fail      ⚠️ Skipped due to prior f
 | `Output[...]`        | Share data between tests |
 | `ChainTagAttribute`  | Adds test traits dynamically |
 
+
+
+
+## Collection-Level Ordering
+
+Xchain supports chaining and data sharing **across test collections** using `ChainLinkAttribute` and `CollectionChainFixture`.
+
+### 🔗 ChainLink Attribute & ChainLinker
+
+Use `[ChainLink(int)]` to assign a sequence to your test collections. Collections are ordered at runtime using the `ChainLinker` test collection orderer.
+
+### 🧪 Collection Fixture: `CollectionChainFixture`
+
+Unlike `TestChainFixture`, which is scoped per class, `CollectionChainFixture` allows shared output **across multiple test classes and collections**. This enables interdependent suites to access a common state.
+
+> ⚠️ Output keys must be **unique across collections**.
+
+---
+
+### ✅ Example Setup
+
+#### 1. Define Collections with `ChainLink`
+
+```csharp
+[CollectionDefinition("ChainTest")]
+[ChainLink(1)]
+public class ChainCollection : ICollectionFixture<CollectionChainFixture> { }
+
+[CollectionDefinition("LinkedTest")]
+[ChainLink(2)]
+public class LinkedCollection : ICollectionFixture<CollectionChainFixture> { }
+
+[CollectionDefinition("LastTest")]
+[ChainLink(3)]
+public class LastCollection : ICollectionFixture<CollectionChainFixture> { }
+```
+
+#### 2. Configure Assembly for Ordered Execution
+
+```csharp
+[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
+[assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 0)]
+```
+
+#### 2. Configure Assembly for Ordered Execution
+
+```csharp
+[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
+[assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 0)]
+```
+
+> You must **disable parallelization** to ensure predictable ordering across collections.
+> You can use parallelization if required. 
+
+#### 3. Use `CollectionChainFixture` in Your Tests
+
+```csharp
+[Collection("ChainTest")]
+[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+public class ChainTest(CollectionChainFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Sleep 1 second")]
+    public async Task Test1() => await chain.LinkAsync(async (output, token) =>
+    {
+        const int sleep = 1000;
+        output["Sleep"] = sleep * 2;
+        await Task.Delay(sleep, token);
+    });
+
+    [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
+    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, token) =>
+    {
+        var sleep = output.Get<int>("Sleep");
+        await Task.Delay(sleep, token);
+    });
+
+    [ChainFact(Link = 3, Name = "Fail")]
+    public void Test3() => chain.Link(() =>
+    {
+        throw new NotImplementedException();
+    });
+}
+```
+
+```csharp
+[Collection("LinkedTest")]
+public class LinkedTest(CollectionChainFixture chain)
+{
+    [Fact]
+    public void TestA() => chain.Link(output =>
+    {
+        Thread.Sleep(1000);
+    });
+
+    [Fact]
+    public void TestB() => chain.Link(output =>
+    {
+        Thread.Sleep(1000);
+        throw new NotImplementedException();
+    });
+}
+```
+
+```csharp
+[Collection("LastTest")]
+public class LastTest(CollectionChainFixture chain)
+{
+    [Fact]
+    public void FinalTest() => chain.Link(output =>
+    {
+        var sleep = output.Get("Sleep");
+        Console.WriteLine($"Final sleep value: {sleep}");
+        Thread.Sleep(1000);
+    });
+}
+```
+
+---
+
+### 📌 Summary of New Features
+
+| Feature                        | Description                                       |
+|-------------------------------|---------------------------------------------------|
+| `ChainLinkAttribute`          | Assigns execution order to test collections      |
+| `ChainLinker`                 | Orders collections based on `ChainLink`          |
+| `CollectionChainFixture`      | Shares output across multiple test classes       |
+| `TestCollectionOrderer`       | Assembly-level setup for cross-collection order  |
+| `DisableTestParallelization`  | Ensures sequential collection execution          |
+
+
+
 ---
 
 - Powered by [Xunit.SkippableFact](https://github.com/AArnott/Xunit.SkippableFact)

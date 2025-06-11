@@ -3,7 +3,7 @@ namespace Xchain.Tests;
 
 
 [Collection("LinkedTest")]
-public class LinkedTest(TestChainFixture chain) 
+public class LinkedTest(CollectionChainFixture chain) 
 {
     [Fact()]
     public void LinkedTest1() => chain.Link((output) =>
