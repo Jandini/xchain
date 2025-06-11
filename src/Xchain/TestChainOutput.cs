@@ -1,5 +1,7 @@
-﻿namespace Xchain;
+﻿using System.Collections.Concurrent;
 
-public class TestChainOutput : Dictionary<string, object>
+namespace Xchain;
+
+public class TestChainOutput : ConcurrentDictionary<string, object>
 {
 }
