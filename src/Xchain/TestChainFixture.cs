@@ -2,6 +2,6 @@
 
 public class TestChainFixture
 {
-    public TestChainOutput Output { get; set; } = [];
-    public TestChainErrors Errors { get; set; } = [];    
+    public virtual TestChainOutput Output { get; } = [];
+    public TestChainErrors Errors { get; } = [];
 }
