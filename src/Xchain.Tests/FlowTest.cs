@@ -3,13 +3,9 @@ namespace Xchain.Tests;
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
 public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 {
-    private class MyFlowFactAttribute : ChainFactAttribute
-    {
-        public MyFlowFactAttribute() => Flow = "MyFlow";
-    }
+    class FlowFactAttribute : ChainFactAttribute { public FlowFactAttribute() => Flow = "MyFlow"; }
 
-
-    [MyFlowFact(Link = 10, Name = "Sleep 1 second")]
+    [FlowFact(Link = 10, Name = "Sleep 1 second")]
     [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
     public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
     {
@@ -19,7 +15,7 @@ public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     }, TimeSpan.FromMilliseconds(100));
 
 
-    [MyFlowFact(Link = 20, Name = "Sleep 2 seconds")]
+    [FlowFact(Link = 20, Name = "Sleep 2 seconds")]
     public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
         var sleep = output.Get<int>("Sleep");
@@ -27,7 +23,7 @@ public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     });
 
 
-    [MyFlowFact(Link = 30, Name = "Throw Exception")]
+    [FlowFact(Link = 30, Name = "Throw Exception")]
     public void Test1() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
@@ -35,7 +31,7 @@ public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 
 
 
-    [MyFlowFact(Link = 40, Name = "Throw Exception")]
+    [FlowFact(Link = 40, Name = "Throw Exception")]
     public void Test4() => chain.LinkUnless<Exception>((output) =>
     {
         var sleep = output.Get("Sleep");
@@ -43,7 +39,7 @@ public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
     });
 
 
-    [MyFlowFact(Link = 50, Name = "Throw Exception")]
+    [FlowFact(Link = 50, Name = "Throw Exception")]
     public void Test5() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
