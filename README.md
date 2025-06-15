@@ -163,6 +163,45 @@ Xchain.Tests.ChainTest: #5 | Yet another fail      ⚠️ Skipped due to prior f
 | `ChainTagAttribute`  | Adds test traits dynamically |
 
 
+## Use Custom Attribute to set Flow for test collection
+
+The `ChainFactAttribute` supports a `Flow` property, allowing test cases to be grouped under a common flow name. While `ChainFactAttribute` is part of the library, you can define your own custom attributes by inheriting from it.
+
+One example is `FlowFactAttribute`, which sets a default flow name for all test cases in a test class. This avoids repeating the `Flow = "..."` assignment in each test case.
+
+#### Purpose
+
+- Demonstrates how to inherit from `ChainFactAttribute`.
+- Centralizes the `Flow` definition in a single place.
+- Reduces redundancy in test annotations.
+
+#### Example
+
+```csharp
+// User-defined attribute
+class FlowFactAttribute : ChainFactAttribute { public FlowFactAttribute() => Flow = "MyFlow"; }
+```
+
+Usage in tests:
+
+```csharp
+[FlowFact(Link = 10, Name = "Sleep 1 second")]
+public async Task Test1() => await chain.LinkAsync(...);
+
+[FlowFact(Link = 20, Name = "Sleep 2 seconds")]
+public async Task Test2() => await chain.LinkUnlessAsync<Exception>(...);
+```
+
+This is equivalent to using:
+
+```csharp
+[ChainFact(Flow = "MyFlow", Link = 10, Name = "Sleep 1 second")]
+```
+
+but without repeating the `Flow` parameter in every test case.
+
+
+
 
 
 ## Collection-Level Ordering
@@ -279,7 +318,7 @@ public class LastTest(CollectionChainFixture chain)
 }
 ```
 
----
+
 
 ### 📌 Summary of New Features
 
