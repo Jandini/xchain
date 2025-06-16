@@ -4,7 +4,7 @@
 namespace Xchain.Tests;
 
 public class LongRunningCollectionFixture() : ChainLinkFixture("WaitForMe");
-public class WaitForLongRunningCollectionFixture() : ChainSyncFixture("WaitForMe");
+public class WaitForLongRunningCollectionFixture() : ChainAwaiterFixture("WaitForMe");
 
 
 [CollectionDefinition("First")]

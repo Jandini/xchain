@@ -3,14 +3,12 @@ using System.Diagnostics;
 
 namespace Xchain;
 
-internal static class ChainSync
+internal static class ChainAwaiter
 {
     private static readonly ConcurrentDictionary<string, bool> ActiveCollections = new();
 
     public static void Register(string name) => ActiveCollections[name] = true;
-
     public static void Unregister(string name) => ActiveCollections[name] = false;
-
     public static void WaitForCollection(string name, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();

@@ -6,12 +6,12 @@ public class ChainLinkFixture : IDisposable
     
     public ChainLinkFixture(string collectionName)
     {
-        ChainSync.Register(collectionName);
+        ChainAwaiter.Register(collectionName);
         _collectionName = collectionName;
     }
 
     public void Dispose()
     {
-        ChainSync.Unregister(_collectionName);
+        ChainAwaiter.Unregister(_collectionName);
     }
 }
