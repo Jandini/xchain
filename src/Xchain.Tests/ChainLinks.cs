@@ -1,16 +1,23 @@
-﻿namespace Xchain.Tests;
+﻿[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
+[assembly: CollectionBehavior(DisableTestParallelization = false, MaxParallelThreads = 8)]
 
-[CollectionDefinition("ChainTest")]
+namespace Xchain.Tests;
+
+public class LongRunningCollectionFixture() : ChainLinkFixture("WaitForMe");
+public class WaitForLongRunningCollectionFixture() : ChainSyncFixture("WaitForMe");
+
+
+[CollectionDefinition("First")]
+public class FirstCollection : ICollectionFixture<CollectionChainFixture> { };
+
+
+[CollectionDefinition("Second")]
+public class SecondCollection : ICollectionFixture<WaitForLongRunningCollectionFixture>, ICollectionFixture<CollectionChainFixture> { };
+
 [ChainLink(1)]
-public class ChainCollection : ICollectionFixture<CollectionChainFixture> { };
+[CollectionDefinition("Third")]
+public class LinkedCollection : ICollectionFixture<LongRunningCollectionFixture>, ICollectionFixture<CollectionChainFixture> { }
 
-
-[CollectionDefinition("LinkedTest")]
-[ChainLink(2)]
-public class LinkedCollection : ICollectionFixture<CollectionChainFixture> { };
-
-
-[CollectionDefinition("LastTest")]
-[ChainLink(3)]
-public class LastCollection : ICollectionFixture<CollectionChainFixture> { };
+[CollectionDefinition("Four")]
+public class LastCollection : ICollectionFixture<WaitForLongRunningCollectionFixture>, ICollectionFixture<CollectionChainFixture> { };
 

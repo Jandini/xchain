@@ -8,5 +8,5 @@
 public class CollectionChainFixture : TestChainFixture
 {
     private static readonly TestChainOutput _output = [];
-    public override TestChainOutput Output => _output;
+    public override TestChainOutput Output => _output;    
 }

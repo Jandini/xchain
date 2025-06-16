@@ -2,8 +2,8 @@
 namespace Xchain.Tests;
 
 
-[Collection("LastTest")]
-public class LastTest(CollectionChainFixture chain) 
+[Collection("Third")]
+public class _03_LastTest(CollectionChainFixture chain)
 {
 
     [Fact()]

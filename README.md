@@ -67,7 +67,6 @@ Each test is displayed as:
 #3 | Throw Exception
 #4 | Fails again
 #5 | Yet another fail
-
 ```
 
 If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#10`, `#15`).
@@ -208,11 +207,11 @@ but without repeating the `Flow` parameter in every test case.
 
 Xchain supports chaining and data sharing **across test collections** using `ChainLinkAttribute` and `CollectionChainFixture`.
 
-### 🔗 ChainLink Attribute & ChainLinker
+### ChainLink Attribute & ChainLinker
 
 Use `[ChainLink(int)]` to assign a sequence to your test collections. Collections are ordered at runtime using the `ChainLinker` test collection orderer.
 
-### 🧪 Collection Fixture: `CollectionChainFixture`
+###  Collection Fixture: `CollectionChainFixture`
 
 Unlike `TestChainFixture`, which is scoped per class, `CollectionChainFixture` allows shared output **across multiple test classes and collections**. This enables interdependent suites to access a common state.
 
@@ -220,7 +219,7 @@ Unlike `TestChainFixture`, which is scoped per class, `CollectionChainFixture` a
 
 ---
 
-### ✅ Example Setup
+### Example Setup
 
 #### 1. Define Collections with `ChainLink`
 
@@ -236,13 +235,6 @@ public class LinkedCollection : ICollectionFixture<CollectionChainFixture> { }
 [CollectionDefinition("LastTest")]
 [ChainLink(3)]
 public class LastCollection : ICollectionFixture<CollectionChainFixture> { }
-```
-
-#### 2. Configure Assembly for Ordered Execution
-
-```csharp
-[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
-[assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 0)]
 ```
 
 #### 2. Configure Assembly for Ordered Execution

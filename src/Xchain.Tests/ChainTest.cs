@@ -1,11 +1,11 @@
-[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
-[assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 8)]
+
+using Xunit;
 
 namespace Xchain.Tests;
 
-[Collection("ChainTest")]
+[Collection("First")]
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class ChainTest(CollectionChainFixture chain) 
+public class _01_ChainTest(CollectionChainFixture chain) 
 {
     [ChainFact(Link = 3, Name = "Throw Exception")]
     public void Test1() => chain.LinkUnless<Exception>((output) =>
@@ -17,7 +17,7 @@ public class ChainTest(CollectionChainFixture chain)
     [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
     public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
-        var sleep = output.Get<int>("Sleep");
+        var sleep = output.Get<int>("Sleep") * 10;
         await Task.Delay(sleep, cancellationToken);
     });
     

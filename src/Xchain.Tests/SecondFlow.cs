@@ -2,12 +2,15 @@
 namespace Xchain.Tests;
 
 
-[Collection("Four")]
-public class _03_LinkedTest(CollectionChainFixture chain)
+[Collection("Second")]
+public class _02_SecondFlow(CollectionChainFixture chain)
 {
+
+
     [Fact()]
     public void LinkedTest1() => chain.Link((output) =>
     {
+        chain.Output["x"] = 10;
         Thread.Sleep(5000);
         throw new NotImplementedException();
     });
@@ -16,6 +19,7 @@ public class _03_LinkedTest(CollectionChainFixture chain)
     [Fact()]
     public void LinkedTest2() => chain.Link((output) =>
     {
+        chain.Output["x"] = 10;
         Thread.Sleep(5000);
         throw new NotImplementedException();
     });
@@ -23,6 +27,7 @@ public class _03_LinkedTest(CollectionChainFixture chain)
     [Fact()]
     public void LinkedTest3() => chain.Link((output) =>
     {
+        chain.Output["x"] = 10;
         Thread.Sleep(5000);
     });
 
@@ -38,6 +43,7 @@ public class _03_LinkedTest(CollectionChainFixture chain)
     [Fact()]
     public void LinkedTest5() => chain.Link((output) =>
     {
+        chain.Output["x"] = 10;
         Thread.Sleep(5000);
     });
 }
