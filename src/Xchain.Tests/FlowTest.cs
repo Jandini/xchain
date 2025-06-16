@@ -1,7 +1,7 @@
 namespace Xchain.Tests;
 
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+public class _00_FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
 {
     class FlowFactAttribute : ChainFactAttribute { public FlowFactAttribute() => Flow = "MyFlow"; }
 

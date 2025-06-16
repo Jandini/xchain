@@ -13,7 +13,7 @@ public class ChainOrderer : ITestCaseOrderer
 
         int order = factAttr?.GetNamedArgument<int>(nameof(ChainFactAttribute.Link))
                     ?? theoryAttr?.GetNamedArgument<int>(nameof(ChainTheoryAttribute.Link))
-                    ?? 0;
+                    ?? int.MaxValue;
 
         return new { TestCase = tc, Order = order };
     })

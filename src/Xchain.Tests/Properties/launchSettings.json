@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Xchain.Tests": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "commandLineArgs": "test *.Tests.dll"
+    }
+  }
+}
