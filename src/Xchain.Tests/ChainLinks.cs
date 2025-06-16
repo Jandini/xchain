@@ -1,7 +1,4 @@
-﻿[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
-[assembly: CollectionBehavior(DisableTestParallelization = false, MaxParallelThreads = 8)]
-
-namespace Xchain.Tests;
+﻿namespace Xchain.Tests;
 
 public class LongRunningCollectionFixture() : ChainLinkFixture("WaitForMe");
 public class WaitForLongRunningCollectionFixture() : ChainAwaiterFixture("WaitForMe");

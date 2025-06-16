@@ -312,7 +312,7 @@ public class LastTest(CollectionChainFixture chain)
 
 
 
-### 📌 Summary of New Features
+### Summary of New Features
 
 | Feature                        | Description                                       |
 |-------------------------------|---------------------------------------------------|
@@ -324,8 +324,95 @@ public class LastTest(CollectionChainFixture chain)
 
 
 
+## Synchronizing Test Collections with ChainLinkFixture and ChainAwaiterFixture
+
+Xchain supports runtime coordination between test collections using `ChainLinkFixture` and `ChainAwaiterFixture`. This allows a test collection to **start only after another collection has completed**, even when collections are allowed to run in parallel globally.
+
+### Purpose
+
+- Coordinate execution between specific test collections without disabling global parallelization.
+- Prevent race conditions or conflicts when collections depend on shared state or resources.
+- Maintain logical execution order **beyond static collection ordering**.
+
+
+### Usage Overview
+
+> - `ChainAwaiter` is an internal component.  
+> -  Users interact only with:
+> - `ChainLinkFixture` to **register** a collection under a name/key.
+> - `ChainAwaiterFixture` to **wait for** a registered collection to finish.
+
+
+### Example: Coordinated Collections
+
+```csharp
+// Registers the collection as "WaitForMe"
+public class LongRunningCollectionFixture() 
+    : ChainLinkFixture("WaitForMe");
+
+// Waits until "WaitForMe" is completed before starting
+public class WaitForLongRunningCollectionFixture() 
+    : ChainAwaiterFixture("WaitForMe");
+```
+
+Define your collections:
+
+```csharp
+[CollectionDefinition("First")]
+public class FirstCollection : ICollectionFixture<CollectionChainFixture> { };
+
+// Waits for "WaitForMe" before executing
+[CollectionDefinition("Second")]
+public class SecondCollection 
+    : ICollectionFixture<WaitForLongRunningCollectionFixture>, 
+      ICollectionFixture<CollectionChainFixture> { };
+
+// Registers itself as "WaitForMe"
+[CollectionDefinition("Third")]
+public class LinkedCollection 
+    : ICollectionFixture<LongRunningCollectionFixture>, 
+      ICollectionFixture<CollectionChainFixture> { }
+
+// Also waits for "WaitForMe"
+[CollectionDefinition("Four")]
+public class LastCollection 
+    : ICollectionFixture<WaitForLongRunningCollectionFixture>, 
+      ICollectionFixture<CollectionChainFixture> { };
+```
+
+In this scenario:
+
+- `LinkedCollection` (Third) begins first and **registers itself** as `"WaitForMe"` using `ChainLinkFixture`.
+- `SecondCollection` and `LastCollection` use `ChainAwaiterFixture("WaitForMe")` to **delay execution** until the registration is marked as complete.
+
+
+
+### Optional Timeout
+
+You can specify a timeout for how long a collection should wait:
+
+```csharp
+public class WaitWithTimeoutFixture() 
+    : ChainAwaiterFixture("WaitForMe", TimeSpan.FromMinutes(2)) { }
+```
+
+---
+
+### Summary
+
+| Component                        | Purpose                                                   |
+|----------------------------------|-----------------------------------------------------------|
+| `ChainLinkFixture(name)`         | Registers the current collection under a given key        |
+| `ChainAwaiterFixture(name)`      | Waits until the named collection has completed            |
+| `ChainAwaiter` (internal)        | Manages registration and synchronization internally       |
+
+> This mechanism allows partial parallelization with explicit coordination where needed.
+
+
+
 ---
 
 - Powered by [Xunit.SkippableFact](https://github.com/AArnott/Xunit.SkippableFact)
 - Created from [JandaBox](https://github.com/Jandini/JandaBox)
 - Box icon by [Freepik – Flaticon](https://www.flaticon.com/free-icons/box)
+
