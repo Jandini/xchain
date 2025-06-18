@@ -20,5 +20,5 @@ public class TestOutput<T, TOutput>(TestChainOutput output, string suffix = null
     /// <typeparamref name="T"/>'s type name and an optional suffix.
     /// </summary>
     /// <param name="value">The value to store, expected to be of type <typeparamref name="TOutput"/>.</param>
-    public void Set(object value) => output[$"{typeof(T).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"] = value;
+    public void Put(object value) => output[$"{typeof(T).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"] = value;
 }
