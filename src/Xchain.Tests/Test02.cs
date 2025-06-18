@@ -8,7 +8,7 @@ public class SecondCollection :
     ICollectionFixture<Test03_CollectionLinkFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-public class Test03_CollectionLinkFixture() : CollectionChainLinkFixture<Test03>();
+public class Test03_CollectionLinkFixture() : CollectionChainLinkRegisterFixture<Test03>();
 
 
 [Collection("Second")]
