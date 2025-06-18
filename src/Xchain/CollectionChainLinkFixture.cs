@@ -1,17 +1,7 @@
 ﻿namespace Xchain;
 
-public class CollectionChainLinkFixture : IDisposable
+public class CollectionChainLinkFixture<T> : IDisposable
 {
-    public string _collectionName;
-    
-    public CollectionChainLinkFixture(string collectionName)
-    {
-        CollectionChainLinkAwaiter.Register(collectionName);
-        _collectionName = collectionName;
-    }
-
-    public void Dispose()
-    {
-        CollectionChainLinkAwaiter.Unregister(_collectionName);
-    }
+    public CollectionChainLinkFixture() => CollectionChainLinkAwaiter.Register(typeof(T).Name);
+    public void Dispose() => CollectionChainLinkAwaiter.Unregister(typeof(T).Name);
 }

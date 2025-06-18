@@ -1,8 +1,8 @@
 ﻿namespace Xchain;
 
-public class CollectionChainLinkAwaitFixture
+public class CollectionChainLinkAwaitFixture<T>
 {   
-    public CollectionChainLinkAwaitFixture(string collectionName) => CollectionChainLinkAwaiter.WaitForCollection(collectionName, TimeSpan.FromSeconds(360));
-    public CollectionChainLinkAwaitFixture(string collectionName, TimeSpan timeout) => CollectionChainLinkAwaiter.WaitForCollection(collectionName, timeout);
+    public CollectionChainLinkAwaitFixture() => CollectionChainLinkAwaiter.WaitForCollection(typeof(T).Name, TimeSpan.FromSeconds(360));
+    public CollectionChainLinkAwaitFixture(TimeSpan timeout) => CollectionChainLinkAwaiter.WaitForCollection(typeof(T).Name, timeout);
 }
 
