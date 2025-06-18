@@ -146,6 +146,12 @@ public static class TestChainContextFixtureExtensions
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             await linkAction(fixture.Output, cts.Token);
         }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
+        }
         catch (Exception ex)
         {
             fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
@@ -181,6 +187,12 @@ public static class TestChainContextFixtureExtensions
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             return await linkAction(fixture.Output, cts.Token);
         }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
+        }
         catch (Exception ex)
         {
             fixture.Errors.Push(new TestChainException(ex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
@@ -209,6 +221,12 @@ public static class TestChainContextFixtureExtensions
             Skip.If(exception is not null, exception?.Message);
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {
@@ -248,6 +266,12 @@ public static class TestChainContextFixtureExtensions
             Skip.If(exception is not null, exception?.Message);
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             return await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {
