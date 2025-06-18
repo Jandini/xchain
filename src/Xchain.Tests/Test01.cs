@@ -3,10 +3,10 @@ namespace Xchain.Tests;
 
 [CollectionDefinition("First")]
 public class Test01Collection : 
-    ICollectionFixture<Test01_CollectionLinkFixture>,
+    ICollectionFixture<Test01_CollectionRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Test01_CollectionLinkFixture() : CollectionChainLinkRegisterFixture<Test01>();
+internal class Test01_CollectionRegisterFixture() : CollectionChainLinkRegisterFixture<Test01>();
 internal class Test01_CollectionAwaitFixture() : CollectionChainLinkAwaitFixture<Test01>();
 
 

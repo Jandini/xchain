@@ -5,10 +5,10 @@ namespace Xchain.Tests;
 public class SecondCollection : 
     // This collection will start only after FirstTest collection is done
     ICollectionFixture<Test01_CollectionAwaitFixture>, 
-    ICollectionFixture<Test03_CollectionLinkFixture>,
+    ICollectionFixture<Test03_CollectionRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-public class Test03_CollectionLinkFixture() : CollectionChainLinkRegisterFixture<Test03>();
+public class Test03_CollectionRegisterFixture() : CollectionChainLinkRegisterFixture<Test03>();
 
 
 [Collection("Second")]
