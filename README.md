@@ -396,7 +396,6 @@ public class WaitWithTimeoutFixture()
     : ChainAwaiterFixture("WaitForMe", TimeSpan.FromMinutes(2)) { }
 ```
 
----
 
 ### Summary
 
@@ -408,6 +407,31 @@ public class WaitWithTimeoutFixture()
 
 > This mechanism allows partial parallelization with explicit coordination where needed.
 
+
+
+### Typed Output Access with `TestOutput<T, TOutput>`
+
+The `TestOutput<T, TOutput>` helper provides a clean and type-safe way to interact with shared values in `TestChainOutput`. It uses the name of a context type `T` and an optional suffix to generate a consistent output key, allowing you to store and retrieve strongly-typed values without string literals.
+
+#### Example
+
+You can define a reusable accessor like this:
+
+```csharp
+public static class TestChainOutputExtensions {
+    public static TestOutput<T, int> MyId<T>(this TestChainOutput output) => new(output, "ThisIsMyId");
+}
+```
+
+And use it in tests or fixtures:
+
+```csharp
+output.MyId<MyTest>().Put(123);
+
+int id = output.MyId<MyTest>().Get();
+```
+
+This pattern ensures consistent key naming and reduces errors from manually typed keys.
 
 
 ---
