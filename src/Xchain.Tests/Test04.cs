@@ -4,7 +4,7 @@ namespace Xchain.Tests;
 
 [CollectionDefinition("Four")]
 public class LastCollection : 
-    ICollectionFixture<Test01_AwaiterFixture>, 
+    ICollectionFixture<Test01_CollectionAwaitFixture>, 
     ICollectionFixture<CollectionChainContextFixture>;
 
 
