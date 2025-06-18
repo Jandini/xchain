@@ -1,4 +1,3 @@
-
 namespace Xchain.Tests;
 
 [CollectionDefinition("Second")]
@@ -10,46 +9,61 @@ public class SecondCollection :
 
 public class Test03_CollectionRegisterFixture() : CollectionChainLinkRegisterFixture<Test03>();
 
+public static class Test01_OutputExtensions 
+{ 
+    public static TestOutput<Test01, int> Id(this TestChainOutput output) => new(output, "Id");
+    public static TestOutput<Test01, int> Id(this TestChainOutput output, out int id)
+    {
+        var result = Id(output);
+        result.TryGet(out id);
+        return result;
+    }
+            
+};
+
 
 [Collection("Second")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class Test02(CollectionChainContextFixture chain)
 {
 
-    [Fact()]
-    public void LinkedTest1() => chain.Link((output) =>
+    [ChainFact(Link = 1)]
+    public void LinkedTest1() => 
+        chain.LinkWithCollection<Test01, int>(chain.Output.Id(out var id),
+            (output) =>
+            {
+                chain.Output["x"] = id;
+                Thread.Sleep(5000);
+                throw new NotImplementedException();
+            });
+
+
+    [ChainFact(Link = 2)]
+    public void LinkedTest2() => chain.LinkUnless<Exception>((output) =>
     {
         chain.Output["x"] = 10;
         Thread.Sleep(5000);
         throw new NotImplementedException();
     });
 
-
-    [Fact()]
-    public void LinkedTest2() => chain.Link((output) =>
-    {
-        chain.Output["x"] = 10;
-        Thread.Sleep(5000);
-        throw new NotImplementedException();
-    });
-
-    [Fact()]
-    public void LinkedTest3() => chain.Link((output) =>
+    [ChainFact(Link = 3)]
+    public void LinkedTest3() => chain.LinkUnless<Exception>((output) =>
     {
         chain.Output["x"] = 10;
         Thread.Sleep(5000);
     });
 
 
-    [Fact()]
-    public void LinkedTest4() => chain.Link((output) =>
+    [ChainFact(Link = 4)]
+    public void LinkedTest4() => chain.LinkUnless<Exception>((output) =>
     {
         var sleep = output.Get("Sleep");
         Thread.Sleep(5000);
         throw new NotImplementedException(sleep);
     });
 
-    [Fact()]
-    public void LinkedTest5() => chain.Link((output) =>
+    [ChainFact(Link = 5)]
+    public void LinkedTest5() => chain.LinkUnless<Exception>((output) =>
     {
         chain.Output["x"] = 10;
         Thread.Sleep(5000);

@@ -11,7 +11,7 @@ public static class TestChainContextFixtureExtensions
     /// <typeparam name="TException">The type of exception to check for.</typeparam>
     /// <param name="fixture">The test chain fixture.</param>
     /// <param name="reason">Optional skip reason.</param>
-    public static void SkipIf<TException>(this TestChainContextFixture fixture, string? reason = null) where TException : Exception =>
+    public static void SkipIf<TException>(this TestChainContextFixture fixture, string reason = null) where TException : Exception =>
         Skip.If(fixture.Errors.Any(ex => ex is TException), reason);
 
     /// <summary>
