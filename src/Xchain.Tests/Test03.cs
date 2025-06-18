@@ -1,25 +1,29 @@
 
 namespace Xchain.Tests;
 
+[ChainLink(1)]
+[CollectionDefinition("Third")]
+public class ThirdCollection : 
+    // This collection will start only after the FirstTest collection is done.
+    ICollectionFixture<Test01AwaiterFixture>, 
+    ICollectionFixture<CollectionChainFixture>;
 
-[Collection("Second")]
-public class _02_SecondFlow(CollectionChainFixture chain)
+
+[Collection("Third")]
+public class Test03(CollectionChainFixture chain)
 {
-
 
     [Fact()]
     public void LinkedTest1() => chain.Link((output) =>
     {
-        chain.Output["x"] = 10;
         Thread.Sleep(5000);
         throw new NotImplementedException();
     });
 
 
     [Fact()]
-    public void LinkedTest2() => chain.Link((output) =>
+    public void LinkedTest22() => chain.Link((output) =>
     {
-        chain.Output["x"] = 10;
         Thread.Sleep(5000);
         throw new NotImplementedException();
     });
@@ -27,7 +31,6 @@ public class _02_SecondFlow(CollectionChainFixture chain)
     [Fact()]
     public void LinkedTest3() => chain.Link((output) =>
     {
-        chain.Output["x"] = 10;
         Thread.Sleep(5000);
     });
 
@@ -35,15 +38,13 @@ public class _02_SecondFlow(CollectionChainFixture chain)
     [Fact()]
     public void LinkedTest4() => chain.Link((output) =>
     {
-        var sleep = output.Get("Sleep");
         Thread.Sleep(5000);
-        throw new NotImplementedException(sleep);
+        throw new NotImplementedException(output.Get("Sleep"));
     });
 
     [Fact()]
     public void LinkedTest5() => chain.Link((output) =>
     {
-        chain.Output["x"] = 10;
         Thread.Sleep(5000);
     });
 }
