@@ -4,12 +4,12 @@ namespace Xchain.Tests;
 
 [CollectionDefinition("Four")]
 public class LastCollection : 
-    ICollectionFixture<Test01AwaiterFixture>, 
-    ICollectionFixture<CollectionChainFixture>;
+    ICollectionFixture<Test01_AwaiterFixture>, 
+    ICollectionFixture<CollectionChainContextFixture>;
 
 
 [Collection("Four")]
-public class Test04(CollectionChainFixture chain)
+public class Test04(CollectionChainContextFixture chain)
 {
     [Fact()]
     public void LinkedTest1() => chain.Link((output) =>

@@ -3,7 +3,7 @@ using Xunit.Sdk;
 
 namespace Xchain;
 
-public class ChainOrderer : ITestCaseOrderer
+public class TestChainOrderer : ITestCaseOrderer
 {
     public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases) where TTestCase : ITestCase => testCases.Select(tc =>
     {

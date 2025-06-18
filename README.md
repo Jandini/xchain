@@ -205,15 +205,15 @@ but without repeating the `Flow` parameter in every test case.
 
 ## Collection-Level Ordering
 
-Xchain supports chaining and data sharing **across test collections** using `ChainLinkAttribute` and `CollectionChainFixture`.
+Xchain supports chaining and data sharing **across test collections** using `CollectionChainOrderAttribute` and `CollectionChainContextFixture`.
 
-### ChainLink Attribute & ChainLinker
+### CollectionChainOrder Attribute & CollectionChainOrderer
 
-Use `[ChainLink(int)]` to assign a sequence to your test collections. Collections are ordered at runtime using the `ChainLinker` test collection orderer.
+Use `[CollectionChainOrder(int)]` to assign a sequence to your test collections. Collections are ordered at runtime using the `CollectionChainOrderer` test collection orderer.
 
-###  Collection Fixture: `CollectionChainFixture`
+###  Collection Chain Context Fixture: `CollectionChainContextFixture`
 
-Unlike `TestChainFixture`, which is scoped per class, `CollectionChainFixture` allows shared output **across multiple test classes and collections**. This enables interdependent suites to access a common state.
+Unlike `TestChainFixture`, which is scoped per class, `CollectionChainContextFixture` allows shared output **across multiple test classes and collections**. This enables interdependent suites to access a common state.
 
 > ⚠️ Output keys must be **unique across collections**.
 
@@ -221,38 +221,38 @@ Unlike `TestChainFixture`, which is scoped per class, `CollectionChainFixture` a
 
 ### Example Setup
 
-#### 1. Define Collections with `ChainLink`
+#### 1. Define Collections with `CollectionChainOrder`
 
 ```csharp
 [CollectionDefinition("ChainTest")]
-[ChainLink(1)]
-public class ChainCollection : ICollectionFixture<CollectionChainFixture> { }
+[CollectionChainOrder(1)]
+public class ChainCollection : ICollectionFixture<CollectionChainContextFixture> { }
 
 [CollectionDefinition("LinkedTest")]
-[ChainLink(2)]
-public class LinkedCollection : ICollectionFixture<CollectionChainFixture> { }
+[CollectionChainOrder(2)]
+public class LinkedCollection : ICollectionFixture<CollectionChainContextFixture> { }
 
 [CollectionDefinition("LastTest")]
-[ChainLink(3)]
-public class LastCollection : ICollectionFixture<CollectionChainFixture> { }
+[CollectionChainOrder(3)]
+public class LastCollection : ICollectionFixture<CollectionChainContextFixture> { }
 ```
 
 #### 2. Configure Assembly for Ordered Execution
 
 ```csharp
-[assembly: TestCollectionOrderer("Xchain.ChainLinker", "Xchain")]
+[assembly: TestCollectionOrderer("Xchain.CollectionChainOrderer", "Xchain")]
 [assembly: CollectionBehavior(DisableTestParallelization = true, MaxParallelThreads = 0)]
 ```
 
 > You must **disable parallelization** to ensure predictable ordering across collections.
 > You can use parallelization if required. 
 
-#### 3. Use `CollectionChainFixture` in Your Tests
+#### 3. Use `CollectionChainContextFixture` in Your Tests
 
 ```csharp
 [Collection("ChainTest")]
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class ChainTest(CollectionChainFixture chain)
+public class ChainTest(CollectionChainContextFixture chain)
 {
     [ChainFact(Link = 1, Name = "Sleep 1 second")]
     public async Task Test1() => await chain.LinkAsync(async (output, token) =>
@@ -279,7 +279,7 @@ public class ChainTest(CollectionChainFixture chain)
 
 ```csharp
 [Collection("LinkedTest")]
-public class LinkedTest(CollectionChainFixture chain)
+public class LinkedTest(CollectionChainContextFixture chain)
 {
     [Fact]
     public void TestA() => chain.Link(output =>
@@ -298,7 +298,7 @@ public class LinkedTest(CollectionChainFixture chain)
 
 ```csharp
 [Collection("LastTest")]
-public class LastTest(CollectionChainFixture chain)
+public class LastTest(CollectionChainContextFixture chain)
 {
     [Fact]
     public void FinalTest() => chain.Link(output =>
@@ -316,17 +316,15 @@ public class LastTest(CollectionChainFixture chain)
 
 | Feature                        | Description                                       |
 |-------------------------------|---------------------------------------------------|
-| `ChainLinkAttribute`          | Assigns execution order to test collections      |
-| `ChainLinker`                 | Orders collections based on `ChainLink`          |
-| `CollectionChainFixture`      | Shares output across multiple test classes       |
-| `TestCollectionOrderer`       | Assembly-level setup for cross-collection order  |
-| `DisableTestParallelization`  | Ensures sequential collection execution          |
+| `CollectionChainOrderAttribute`          | Assigns execution order to test collections      |
+| `CollectionChainOrderer`                 | Orders collections based on `CollectionChainOrder`          |
+| `CollectionChainContextFixture`      | Shares output across multiple test classes       |
 
 
 
-## Synchronizing Test Collections with ChainLinkFixture and ChainAwaiterFixture
+## Synchronizing Test Collections with CollectionChainLinkFixture and CollectionChainAwaiterFixture
 
-Xchain supports runtime coordination between test collections using `ChainLinkFixture` and `ChainAwaiterFixture`. This allows a test collection to **start only after another collection has completed**, even when collections are allowed to run in parallel globally.
+Xchain supports runtime coordination between test collections using `CollectionChainLinkFixture` and `CollectionChainAwaiterFixture`. This allows a test collection to **start only after another collection has completed**, even when collections are allowed to run in parallel globally.
 
 ### Purpose
 
@@ -339,8 +337,8 @@ Xchain supports runtime coordination between test collections using `ChainLinkFi
 
 > - `ChainAwaiter` is an internal component.  
 > -  Users interact only with:
-> - `ChainLinkFixture` to **register** a collection under a name/key.
-> - `ChainAwaiterFixture` to **wait for** a registered collection to finish.
+> - `CollectionChainLinkFixture` to **register** a collection under a name/key.
+> - `CollectionChainAwaiterFixture` to **wait for** a registered collection to finish.
 
 
 ### Example: Coordinated Collections
@@ -348,42 +346,42 @@ Xchain supports runtime coordination between test collections using `ChainLinkFi
 ```csharp
 // Registers the collection as "WaitForMe"
 public class LongRunningCollectionFixture() 
-    : ChainLinkFixture("WaitForMe");
+    : CollectionChainLinkFixture("WaitForMe");
 
 // Waits until "WaitForMe" is completed before starting
 public class WaitForLongRunningCollectionFixture() 
-    : ChainAwaiterFixture("WaitForMe");
+    : CollectionChainAwaiterFixture("WaitForMe");
 ```
 
 Define your collections:
 
 ```csharp
 [CollectionDefinition("First")]
-public class FirstCollection : ICollectionFixture<CollectionChainFixture> { };
+public class FirstCollection : ICollectionFixture<CollectionChainContextFixture> { };
 
 // Waits for "WaitForMe" before executing
 [CollectionDefinition("Second")]
 public class SecondCollection 
     : ICollectionFixture<WaitForLongRunningCollectionFixture>, 
-      ICollectionFixture<CollectionChainFixture> { };
+      ICollectionFixture<CollectionChainContextFixture> { };
 
 // Registers itself as "WaitForMe"
 [CollectionDefinition("Third")]
 public class LinkedCollection 
     : ICollectionFixture<LongRunningCollectionFixture>, 
-      ICollectionFixture<CollectionChainFixture> { }
+      ICollectionFixture<CollectionChainContextFixture> { }
 
 // Also waits for "WaitForMe"
 [CollectionDefinition("Four")]
 public class LastCollection 
     : ICollectionFixture<WaitForLongRunningCollectionFixture>, 
-      ICollectionFixture<CollectionChainFixture> { };
+      ICollectionFixture<CollectionChainContextFixture> { };
 ```
 
 In this scenario:
 
-- `LinkedCollection` (Third) begins first and **registers itself** as `"WaitForMe"` using `ChainLinkFixture`.
-- `SecondCollection` and `LastCollection` use `ChainAwaiterFixture("WaitForMe")` to **delay execution** until the registration is marked as complete.
+- `LinkedCollection` (Third) begins first and **registers itself** as `"WaitForMe"` using `CollectionChainLinkFixture`.
+- `SecondCollection` and `LastCollection` use `CollectionChainAwaiterFixture("WaitForMe")` to **delay execution** until the registration is marked as complete.
 
 
 
@@ -393,7 +391,7 @@ You can specify a timeout for how long a collection should wait:
 
 ```csharp
 public class WaitWithTimeoutFixture() 
-    : ChainAwaiterFixture("WaitForMe", TimeSpan.FromMinutes(2)) { }
+    : CollectionChainAwaiterFixture("WaitForMe", TimeSpan.FromMinutes(2)) { }
 ```
 
 
@@ -401,9 +399,9 @@ public class WaitWithTimeoutFixture()
 
 | Component                        | Purpose                                                   |
 |----------------------------------|-----------------------------------------------------------|
-| `ChainLinkFixture(name)`         | Registers the current collection under a given key        |
-| `ChainAwaiterFixture(name)`      | Waits until the named collection has completed            |
-| `ChainAwaiter` (internal)        | Manages registration and synchronization internally       |
+| `CollectionChainLinkFixture(name)`         | Registers the current collection under a given key        |
+| `CollectionChainAwaiterFixture(name)`      | Waits until the named collection has completed            |
+| `CollectionChainAwaiter` (internal)        | Manages registration and synchronization internally       |
 
 > This mechanism allows partial parallelization with explicit coordination where needed.
 

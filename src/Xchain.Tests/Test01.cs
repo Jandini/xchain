@@ -3,16 +3,16 @@ namespace Xchain.Tests;
 
 [CollectionDefinition("First")]
 public class Test01Collection : 
-    ICollectionFixture<Test01RegisterFixture>,
-    ICollectionFixture<CollectionChainFixture>;
+    ICollectionFixture<Test01_LinkFixture>,
+    ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Test01RegisterFixture() : ChainLinkFixture("First Test");
-internal class Test01AwaiterFixture() : ChainAwaiterFixture("First Test");
+internal class Test01_LinkFixture() : CollectionChainLinkFixture("First Test");
+internal class Test01_AwaiterFixture() : CollectionChainAwaiterFixture("First Test");
 
 
 [Collection("First")]
 [TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class Test01(CollectionChainFixture chain) 
+public class Test01(CollectionChainContextFixture chain) 
 {
     [ChainFact(Link = 3, Name = "Throw Exception")]
     public void Test1() => chain.LinkUnless<Exception>((output) =>

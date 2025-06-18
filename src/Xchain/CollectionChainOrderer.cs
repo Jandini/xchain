@@ -7,21 +7,21 @@ namespace Xchain;
 /// Orders test collections by the Link value defined in [ChainLink].
 /// Collections without a Link default to int.MaxValue so they will be added at the end.
 /// </summary>
-public class ChainLinker : ITestCollectionOrderer
+public class CollectionChainOrderer : ITestCollectionOrderer
 {
     public IEnumerable<ITestCollection> OrderTestCollections(IEnumerable<ITestCollection> testCollections)
     {
         var ordered = testCollections
             .Select(tc =>
             {
-                var attr = tc.CollectionDefinition?.GetCustomAttributes(typeof(ChainLinkAttribute).AssemblyQualifiedName!)
+                var attr = tc.CollectionDefinition?.GetCustomAttributes(typeof(CollectionChainOrderAttribute).AssemblyQualifiedName!)
                     .FirstOrDefault();
 
-                int link = attr?.GetNamedArgument<int>(nameof(ChainLinkAttribute.Link)) ?? int.MaxValue;
+                int order = attr?.GetNamedArgument<int>(nameof(CollectionChainOrderAttribute.Order)) ?? int.MaxValue;
 
-                return new { Collection = tc, Link = link };
+                return new { Collection = tc, Order = order };
             })
-            .OrderBy(x => x.Link)
+            .OrderBy(x => x.Order)
             .Select(x => x.Collection);
 
         foreach (var collection in ordered)

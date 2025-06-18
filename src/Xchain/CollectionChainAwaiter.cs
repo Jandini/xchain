@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Xchain;
 
-internal static class ChainAwaiter
+internal static class CollectionChainAwaiter
 {
     private static readonly ConcurrentDictionary<string, bool> ActiveCollections = new();
 
