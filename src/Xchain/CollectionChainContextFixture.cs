@@ -8,5 +8,8 @@
 public class CollectionChainContextFixture : TestChainContextFixture
 {
     private static readonly TestChainOutput _output = [];
-    public override TestChainOutput Output => _output;    
+    private static readonly TestChainErrors _errors = [];
+
+    public override TestChainOutput Output => _output;
+    public override TestChainErrors Errors => _errors;
 }
