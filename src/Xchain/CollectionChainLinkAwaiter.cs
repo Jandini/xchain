@@ -3,6 +3,8 @@ using System.Diagnostics;
 
 namespace Xchain;
 
+// TODO: Make this part of the registration, and add logging...
+
 internal static class CollectionChainLinkAwaiter
 {
     private static readonly ConcurrentDictionary<string, bool> ActiveCollections = new();
