@@ -1,5 +1,7 @@
-﻿namespace Xchain;
+﻿using System.Collections.Concurrent;
 
-public class TestChainErrors : Stack<Exception>
+namespace Xchain;
+
+public class TestChainErrors : ConcurrentStack<Exception>
 {
 }

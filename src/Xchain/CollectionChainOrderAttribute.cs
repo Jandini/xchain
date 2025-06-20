@@ -4,7 +4,7 @@
 /// Assigns a Link number to a test collection for execution order.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-public class ChainLinkAttribute(int link) : Attribute
+public class CollectionChainOrderAttribute(int order) : Attribute
 {
-    public int Link { get; } = link;
+    public int Order { get; } = order;
 }
