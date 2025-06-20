@@ -20,7 +20,7 @@ Xchain extends xUnit with a fluent mechanism to **chain tests**, **pass data**, 
 ## Example: Chained Execution with Display Names
 
 ```csharp
-[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class ChainTest(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>
 {
     [ChainFact(Link = 3, Name = "Throw Exception")]
@@ -84,7 +84,7 @@ If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#
 Xchain uses a `TestChainContextFixture` to share both output values and captured exceptions.
 
 ```csharp
-[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class ChainTest(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>
 {
     [ChainFact(Link = 1, Name = "Setup")]
@@ -251,7 +251,7 @@ public class LastCollection : ICollectionFixture<CollectionChainContextFixture> 
 
 ```csharp
 [Collection("ChainTest")]
-[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class ChainTest(CollectionChainContextFixture chain)
 {
     [ChainFact(Link = 1, Name = "Sleep 1 second")]

@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+
 namespace Xchain.Tests;
 
 
@@ -6,12 +8,12 @@ public class Test01Collection :
     ICollectionFixture<Test01_CollectionRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Test01_CollectionRegisterFixture() : CollectionChainLinkRegisterFixture<Test01>();
-internal class Test01_CollectionAwaitFixture() : CollectionChainLinkAwaitFixture<Test01>();
+internal class Test01_CollectionRegisterFixture : CollectionChainLinkRegisterFixture<Test01>;
+internal class Test01_CollectionAwaitFixture(IMessageSink messageSink) : CollectionChainLinkAwaitFixture<Test01>(messageSink);
 
 
 [Collection("First")]
-[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class Test01(CollectionChainContextFixture chain) 
 {
     [ChainFact(Link = 3, Name = "Throw Exception")]
