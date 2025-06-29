@@ -7,7 +7,7 @@ public class SecondCollection :
     ICollectionFixture<Test03_CollectionRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-public class Test03_CollectionRegisterFixture() : CollectionChainLinkRegisterFixture<Test03>();
+public class Test03_CollectionRegisterFixture() : CollectionChainLinkSetupFixture<Test03>();
 
 public static class Test01_OutputExtensions 
 { 

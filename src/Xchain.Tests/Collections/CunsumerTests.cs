@@ -8,7 +8,7 @@ public class SecondCollectionDefinition :
     ICollectionFixture<CollectionChainContextFixture>;
 
 internal class ProducerAwaitFixture : CollectionChainLinkAwaitFixture<ProducerCollection>;
-internal class ConsumerRegisterFixture : CollectionChainLinkRegisterFixture<ConsumerCollection>;
+internal class ConsumerRegisterFixture : CollectionChainLinkSetupFixture<ConsumerCollection>;
 
 [Metadata("Xchain Collection")]
 [Collection("SecondCollection")]

@@ -8,12 +8,12 @@
 /// Registration occurs during fixture construction and is removed on disposal.
 /// This fixture should be attached to a collection that other collections depend on via <see cref="CollectionChainLinkAwaitFixture{T}"/>.
 /// </remarks>
-public class CollectionChainLinkRegisterFixture<T> : IDisposable
+public class CollectionChainLinkSetupFixture<T> : IDisposable
 {
     /// <summary>
     /// Registers the collection using the name of the <typeparamref name="T"/> type.
     /// </summary>
-    public CollectionChainLinkRegisterFixture() =>
+    public CollectionChainLinkSetupFixture() =>
         CollectionChainLinkAwaiter.Register(typeof(T).Name);
 
     /// <summary>

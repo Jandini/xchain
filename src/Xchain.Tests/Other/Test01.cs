@@ -6,7 +6,7 @@ public class Test01Collection :
     ICollectionFixture<Test01_CollectionRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Test01_CollectionRegisterFixture : CollectionChainLinkRegisterFixture<Test01>;
+internal class Test01_CollectionRegisterFixture : CollectionChainLinkSetupFixture<Test01>;
 internal class Test01_CollectionAwaitFixture : CollectionChainLinkAwaitFixture<Test01>;
 
 

@@ -6,7 +6,7 @@ public class FirstCollectionDefinition :
     ICollectionFixture<ProducerRegisterFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class ProducerRegisterFixture : CollectionChainLinkRegisterFixture<ProducerCollection>;
+internal class ProducerRegisterFixture : CollectionChainLinkSetupFixture<ProducerCollection>;
 
 [Metadata("Xchain Collection")]
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
