@@ -3,8 +3,21 @@ using Xunit.Abstractions;
 
 namespace Xchain;
 
+/// <summary>
+/// Orders test collections based on the <see cref="CollectionChainOrderAttribute"/> applied to each collection definition.
+/// </summary>
+/// <remarks>
+/// This orderer only takes effect if test parallelism is disabled across the assembly:
+/// <code>[assembly: CollectionBehavior(DisableTestParallelization = true)]</code>
+/// In most scenarios, prefer <see cref="CollectionChainLinkAwaitFixture{T}"/> for flexible, parallel-safe coordination.
+/// </remarks>
 public class CollectionChainOrderer : ITestCollectionOrderer
 {
+    /// <summary>
+    /// Sorts collections by their assigned order value or defaults to <see cref="int.MaxValue"/> if not specified.
+    /// </summary>
+    /// <param name="testCollections">All test collections defined in the test assembly.</param>
+    /// <returns>The ordered sequence of test collections.</returns>
     public IEnumerable<ITestCollection> OrderTestCollections(IEnumerable<ITestCollection> testCollections)
     {
         var ordered = testCollections
