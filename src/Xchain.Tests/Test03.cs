@@ -1,10 +1,9 @@
 
 namespace Xchain.Tests;
 
-[CollectionChainOrder(1)]
 [CollectionDefinition("Third")]
 public class ThirdCollection : 
-    // This collection will start only after the FirstTest collection is done.
+    // This collection will start only after the First test collection is done.
     ICollectionFixture<Test01_CollectionAwaitFixture>, 
     ICollectionFixture<CollectionChainContextFixture>;
 

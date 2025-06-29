@@ -17,25 +17,12 @@ Xchain extends xUnit with a fluent mechanism to **chain tests**, **pass data**, 
 - **Custom metadata**: Add test traits via simple attribute classes.
 
 
-## Example: Chained Execution with Display Names
+## Chained Execution with Display Names
 
 ```csharp
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class ChainTest(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>
 {
-    [ChainFact(Link = 3, Name = "Throw Exception")]
-    public void Test1() => chain.LinkUnless<Exception>((output) =>
-    {
-        throw new NotImplementedException();
-    });
-
-    [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
-    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
-    {
-        var sleep = output.Get<int>("Sleep");
-        await Task.Delay(sleep, cancellationToken);
-    });
-
     [ChainFact(Link = 1, Name = "Sleep 1 second", Pad = 2)]
     [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
     public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
@@ -44,14 +31,27 @@ public class ChainTest(TestChainContextFixture chain) : IClassFixture<TestChainC
         output["Sleep"] = sleep * 2;
         await Task.Delay(sleep, cancellationToken);
     }, TimeSpan.FromMilliseconds(100));
+    
+    [ChainFact(Link = 2, Name = "Sleep 2 seconds", Pad = 2)]
+    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
+    {
+        var sleep = output.Get<int>("Sleep");
+        await Task.Delay(sleep, cancellationToken);
+    });
+    
+    [ChainFact(Link = 3, Name = "Throw Exception", Pad = 2)]
+    public void Test1() => chain.LinkUnless<Exception>((output) =>
+    {
+        throw new NotImplementedException();
+    });
 
-    [ChainFact(Link = 4, Name = "Fails again")]
+    [ChainFact(Link = 4, Name = "Fails again", Pad = 2))]
     public void Test4() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
     });
 
-    [ChainFact(Link = 5, Name = "Yet another fail")]
+    [ChainFact(Link = 5, Name = "Yet another fail", Pad = 2))]
     public void Test5() => chain.LinkUnless<Exception>((output) =>
     {
         throw new NotImplementedException();
@@ -63,13 +63,14 @@ Each test is displayed as:
 
 ```
 #01 | Sleep 1 second
-#2 | Sleep 2 seconds
-#3 | Throw Exception
-#4 | Fails again
-#5 | Yet another fail
+#02 | Sleep 2 seconds
+#03 | Throw Exception
+#04 | Fails again
+#05 | Yet another fail
 ```
 
 If `Pad = 2`, it ensures alignment even when Link goes beyond 9 (e.g., `#01`, `#10`, `#15`).
+
 
 
 ## Fluent Chaining Methods
@@ -98,6 +99,7 @@ public class ChainTest(TestChainContextFixture chain) : IClassFixture<TestChainC
     }
 }
 ```
+
 
 
 ## Skipping on Previous Failures
