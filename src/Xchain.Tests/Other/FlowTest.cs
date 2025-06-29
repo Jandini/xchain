@@ -1,4 +1,4 @@
-namespace Xchain.Tests;
+namespace Xchain.Tests.Other;
 
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class FlowTest(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>

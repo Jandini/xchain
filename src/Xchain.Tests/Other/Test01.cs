@@ -1,4 +1,4 @@
-namespace Xchain.Tests;
+namespace Xchain.Tests.Other;
 
 
 [CollectionDefinition("First")]

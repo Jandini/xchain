@@ -1,5 +1,4 @@
-
-namespace Xchain.Tests;
+namespace Xchain.Tests.Other;
 
 [CollectionDefinition("Third")]
 public class ThirdCollection : 

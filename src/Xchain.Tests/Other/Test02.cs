@@ -1,4 +1,4 @@
-namespace Xchain.Tests;
+namespace Xchain.Tests.Other;
 
 [CollectionDefinition("Second")]
 public class SecondCollection : 
@@ -14,7 +14,7 @@ public static class Test01_OutputExtensions
     public static TestOutput<Test01, int> Id(this TestChainOutput output) => new(output, "Id");
     public static TestOutput<Test01, int> Id(this TestChainOutput output, out int id)
     {
-        var result = Id(output);
+        var result = output.Id();
         result.TryGet(out id);
         return result;
     }
@@ -29,7 +29,7 @@ public class Test02(CollectionChainContextFixture chain)
 
     [ChainFact(Link = 1)]
     public void LinkedTest1() => 
-        chain.LinkWithCollection<Test01, int>(chain.Output.Id(out var id),
+        chain.LinkWithCollection(chain.Output.Id(out var id),
             (output) =>
             {
                 chain.Output["x"] = id;
