@@ -1,9 +1,9 @@
-# XChain
+# Xchain
 
 [![Build](https://github.com/Jandini/Xchain/actions/workflows/build.yml/badge.svg)](https://github.com/Jandini/Xchain/actions/workflows/build.yml)
 [![NuGet](https://github.com/Jandini/Xchain/actions/workflows/nuget.yml/badge.svg)](https://github.com/Jandini/Xchain/actions/workflows/nuget.yml)
 
-**XChain** extends xUnit with structured test chaining, shared context between steps, and smart skipping based on previous failures. It's ideal for integration tests, API flows, or any scenario where test steps depend on each other and need to run in a defined order.
+**Xchain** extends xUnit with structured test chaining, shared context between steps, and smart skipping based on previous failures. It's ideal for integration tests, API flows, or any scenario where test steps depend on each other and need to run in a defined order.
 
 ## Features
 
@@ -16,11 +16,11 @@
 
 ---
 
-## Why XChain?
+## Why Xchain?
 
 Traditional xUnit tests are isolated by design — great for unit tests, but limiting for integration or scenario tests where later steps depend on earlier ones.
 
-**XChain solves this** by enabling:
+**Xchain solves this** by enabling:
 - Logical chaining within a class (`Link`-ordered `[ChainFact]`)
 - Shared, strongly-typed test output values
 - Explicit collection orchestration
@@ -31,7 +31,7 @@ Traditional xUnit tests are isolated by design — great for unit tests, but lim
 
 ## How It Works
 
-XChain uses xUnit’s extensibility to provide:
+Xchain uses xUnit’s extensibility to provide:
 - Custom `[ChainFact]` / `[ChainTheory]` attributes that inject ordering, naming, and flow grouping.
 - A fixture-based pattern (`TestChainContextFixture`) for output sharing and exception flow.
 - Fluent APIs like `.Link`, `.LinkUnless`, `.LinkWithCollection`, etc. to capture and control flow.
@@ -66,7 +66,7 @@ Each `[ChainFact]` defines a link in the chain. You can pass values between step
 
 ## Key Concepts
 
-XChain builds upon xUnit's extensibility to introduce a minimal and powerful abstraction for test chaining. Here are the key features and how they work:
+Xchain builds upon xUnit's extensibility to introduce a minimal and powerful abstraction for test chaining. Here are the key features and how they work:
 
 ### `ChainFact` and `ChainTheory`
 
@@ -91,7 +91,7 @@ This improves traceability in test logs and IDE explorers.
 
 ### Linking Logic (`Link`, `LinkUnless`, `LinkAsync`, etc.)
 
-XChain provides fluent methods to structure test execution:
+Xchain provides fluent methods to structure test execution:
 
 - `Link`: Run test logic and track exceptions.
 - `LinkUnless<TException>`: Skip test if a specific exception already occurred.
@@ -118,7 +118,7 @@ You can also build reusable strongly typed accessors using `TestOutput<TCollecti
 
 ### Chaining Collections
 
-XChain enables one collection to wait for another to finish using:
+Xchain enables one collection to wait for another to finish using:
 
 - `CollectionChainLinkSetupFixture<T>` — registers a collection as a chain step.
 - `CollectionChainLinkAwaitFixture<T>` — blocks until the registered collection completes.
@@ -140,7 +140,7 @@ Note: Collection timeouts default to **6 minutes**. This can be configured in th
 
 ### Global Metadata via Traits
 
-XChain includes a `TraitDiscoverer` that turns strongly-typed attributes into metadata for filtering and organizing tests.
+Xchain includes a `TraitDiscoverer` that turns strongly-typed attributes into metadata for filtering and organizing tests.
 
 ```csharp
 [Metadata("SmokeTests")]
@@ -169,7 +169,7 @@ Each of these features builds on xUnit principles while maintaining full compati
 
 ## Creating Strongly Typed Output Keys
 
-When working with shared outputs across tests or collections, it's helpful to avoid using raw string keys. XChain supports strongly typed access via `TestOutput<TCollection, TOutput>`, which encapsulates the key naming and value casting.
+When working with shared outputs across tests or collections, it's helpful to avoid using raw string keys. Xchain supports strongly typed access via `TestOutput<TCollection, TOutput>`, which encapsulates the key naming and value casting.
 
 ### Step 1: Define a Typed Extension
 
