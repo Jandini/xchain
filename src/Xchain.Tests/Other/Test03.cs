@@ -1,16 +1,14 @@
+namespace Xchain.Tests.Other;
 
-namespace Xchain.Tests;
-
-[ChainLink(1)]
 [CollectionDefinition("Third")]
 public class ThirdCollection : 
-    // This collection will start only after the FirstTest collection is done.
-    ICollectionFixture<Test01AwaiterFixture>, 
-    ICollectionFixture<CollectionChainFixture>;
+    // This collection will start only after the First test collection is done.
+    ICollectionFixture<Test01_CollectionAwaitFixture>, 
+    ICollectionFixture<CollectionChainContextFixture>;
 
 
 [Collection("Third")]
-public class Test03(CollectionChainFixture chain)
+public class Test03(CollectionChainContextFixture chain)
 {
 
     [Fact()]

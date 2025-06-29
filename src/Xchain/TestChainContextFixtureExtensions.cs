@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xchain;
 
-public static class TestChainFixtureExtensions
+public static class TestChainContextFixtureExtensions
 {
     /// <summary>
     /// Skips the test if an exception of type <typeparamref name="TException"/> exists in the test chain.
@@ -11,7 +11,7 @@ public static class TestChainFixtureExtensions
     /// <typeparam name="TException">The type of exception to check for.</typeparam>
     /// <param name="fixture">The test chain fixture.</param>
     /// <param name="reason">Optional skip reason.</param>
-    public static void SkipIf<TException>(this TestChainFixture fixture, string? reason = null) where TException : Exception =>
+    public static void SkipIf<TException>(this TestChainContextFixture fixture, string reason = null) where TException : Exception =>
         Skip.If(fixture.Errors.Any(ex => ex is TException), reason);
 
     /// <summary>
@@ -22,7 +22,7 @@ public static class TestChainFixtureExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static void Link(this TestChainFixture fixture, Action<TestChainOutput> linkAction,
+    public static void Link(this TestChainContextFixture fixture, Action<TestChainOutput> linkAction,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1)
@@ -51,7 +51,7 @@ public static class TestChainFixtureExtensions
     /// <exception cref="TestChainException">
     /// Thrown when <paramref name="linkAction"/> throws, wrapping the original exception with context.
     /// </exception>
-    public static TResult Link<TResult>(this TestChainFixture fixture, Func<TestChainOutput, TResult> linkAction,
+    public static TResult Link<TResult>(this TestChainContextFixture fixture, Func<TestChainOutput, TResult> linkAction,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1)
@@ -76,7 +76,7 @@ public static class TestChainFixtureExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static void LinkUnless<TException>(this TestChainFixture fixture, Action<TestChainOutput> linkAction,
+    public static void LinkUnless<TException>(this TestChainContextFixture fixture, Action<TestChainOutput> linkAction,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1) where TException : Exception
@@ -109,7 +109,7 @@ public static class TestChainFixtureExtensions
     /// <exception cref="TestChainException">
     /// Thrown when <paramref name="linkAction"/> throws, wrapping the original exception with context.
     /// </exception>
-    public static TResult LinkUnless<TException, TResult>(this TestChainFixture fixture, Func<TestChainOutput, TResult> linkAction,
+    public static TResult LinkUnless<TException, TResult>(this TestChainContextFixture fixture, Func<TestChainOutput, TResult> linkAction,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
         [CallerLineNumber] int callerLineNumber = -1) where TException : Exception
@@ -135,7 +135,7 @@ public static class TestChainFixtureExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static async Task LinkAsync(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
+    public static async Task LinkAsync(this TestChainContextFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
         TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
@@ -145,6 +145,12 @@ public static class TestChainFixtureExtensions
         {
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {
@@ -170,7 +176,7 @@ public static class TestChainFixtureExtensions
     /// <exception cref="TestChainException">
     /// Thrown when <paramref name="linkAction"/> throws, wrapping the original exception with context.
     /// </exception>
-    public static async Task<TResult> LinkAsync<TResult>(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task<TResult>> linkAction,
+    public static async Task<TResult> LinkAsync<TResult>(this TestChainContextFixture fixture, Func<TestChainOutput, CancellationToken, Task<TResult>> linkAction,
         TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
@@ -180,6 +186,12 @@ public static class TestChainFixtureExtensions
         {
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             return await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {
@@ -197,7 +209,7 @@ public static class TestChainFixtureExtensions
     /// <param name="callerName">Automatically filled with the calling method's name.</param>
     /// <param name="callerFilePath">Automatically filled with the source file path.</param>
     /// <param name="callerLineNumber">Automatically filled with the line number of the call.</param>
-    public static async Task LinkUnlessAsync<TException>(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
+    public static async Task LinkUnlessAsync<TException>(this TestChainContextFixture fixture, Func<TestChainOutput, CancellationToken, Task> linkAction,
         TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
@@ -209,6 +221,12 @@ public static class TestChainFixtureExtensions
             Skip.If(exception is not null, exception?.Message);
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {
@@ -236,7 +254,7 @@ public static class TestChainFixtureExtensions
     /// <exception cref="TestChainException">
     /// Thrown when <paramref name="linkAction"/> throws, wrapping the original exception with context.
     /// </exception>
-    public static async Task<TResult> LinkUnlessAsync<TException, TResult>(this TestChainFixture fixture, Func<TestChainOutput, CancellationToken, Task<TResult>> linkAction,
+    public static async Task<TResult> LinkUnlessAsync<TException, TResult>(this TestChainContextFixture fixture, Func<TestChainOutput, CancellationToken, Task<TResult>> linkAction,
         TimeSpan timeOut = default,
         [CallerMemberName] string callerName = "",
         [CallerFilePath] string callerFilePath = "",
@@ -248,6 +266,12 @@ public static class TestChainFixtureExtensions
             Skip.If(exception is not null, exception?.Message);
             using CancellationTokenSource cts = timeOut != default ? new(timeOut) : new();
             return await linkAction(fixture.Output, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeOut != default)
+        {
+            var tex = new TimeoutException($"The {callerName} timed out after {timeOut}.", ex);
+            fixture.Errors.Push(new TestChainException(tex, fixture.Errors, callerName, callerFilePath, callerLineNumber));
+            throw tex;
         }
         catch (Exception ex)
         {

@@ -1,26 +1,28 @@
-namespace Xchain.Tests;
+namespace Xchain.Tests.Other;
 
-[TestCaseOrderer("Xchain.ChainOrderer", "Xchain")]
-public class FlowTest(TestChainFixture chain) : IClassFixture<TestChainFixture>
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public class FlowTest(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>
 {
     class FlowFactAttribute : ChainFactAttribute { public FlowFactAttribute() => Flow = "MyFlow"; }
 
     [FlowFact(Link = 10, Name = "Sleep 1 second")]
     [ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
-    public async Task Test3() => await chain.LinkAsync(async (output, cancellationToken) =>
-    {
-        const int sleep = 1000;
-        output["Sleep"] = sleep * 2;
-        await Task.Delay(sleep, cancellationToken);
-    }, TimeSpan.FromMilliseconds(100));
+    public async Task Test3() => 
+        await chain.LinkAsync(async (output, cancellationToken) =>
+        {
+            const int sleep = 1000;
+            output["Sleep"] = sleep * 2;
+            await Task.Delay(sleep, cancellationToken);
+        }, TimeSpan.FromMilliseconds(100));
 
 
     [FlowFact(Link = 20, Name = "Sleep 2 seconds")]
-    public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
-    {
-        var sleep = output.Get<int>("Sleep");
-        await Task.Delay(sleep, cancellationToken);
-    });
+    public async Task Test2() => 
+        await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
+        {
+            var sleep = output.Get<int>("Sleep");
+            await Task.Delay(sleep, cancellationToken);
+        });
 
 
     [FlowFact(Link = 30, Name = "Throw Exception")]

@@ -1,30 +1,36 @@
 ﻿namespace Xchain;
 
+/// <summary>
+/// Extension methods for simplified and type-safe access to values in <see cref="TestChainOutput"/>.
+/// </summary>
 public static class TestChainOutputExtensions
 {
     /// <summary>
-    /// Retrieves a value from the test chain output by name or throws if it doesn't exist.
+    /// Retrieves a value of the specified type from the test chain output by key.
     /// </summary>
     /// <typeparam name="T">The expected type of the output value.</typeparam>
-    /// <param name="output">The test chain output.</param>
-    /// <param name="name">The key name of the output item.</param>
+    /// <param name="output">The shared output dictionary.</param>
+    /// <param name="name">The key used to retrieve the value.</param>
     /// <returns>The value cast to <typeparamref name="T"/>.</returns>
-    /// <exception cref="TestChainOutputMissingException">Thrown if the named output is missing.</exception>
+    /// <exception cref="TestChainOutputMissingException">
+    /// Thrown if the key does not exist in the output dictionary.
+    /// </exception>
     public static T Get<T>(this TestChainOutput output, string name) =>
-        output.ContainsKey(name) ? (T)output[name] : throw new TestChainOutputMissingException(name);
-
+        output.ContainsKey(name)
+            ? (T)output[name]
+            : throw new TestChainOutputMissingException(name);
 
     /// <summary>
-    /// Retrieves a value from the test chain output by name and returns it as a string.
-    /// Throws if the key does not exist.
+    /// Retrieves a value as a string from the test chain output by key.
     /// </summary>
-    /// <param name="output">The test chain output.</param>
-    /// <param name="name">The key name of the output item.</param>
-    /// <returns>The string representation of the value.</returns>
-    /// <exception cref="TestChainOutputMissingException">Thrown if the named output is missing.</exception>
+    /// <param name="output">The shared output dictionary.</param>
+    /// <param name="name">The key used to retrieve the value.</param>
+    /// <returns>The string representation of the stored object, or an empty string if null.</returns>
+    /// <exception cref="TestChainOutputMissingException">
+    /// Thrown if the key does not exist in the output dictionary.
+    /// </exception>
     public static string Get(this TestChainOutput output, string name) =>
         output.ContainsKey(name)
             ? output[name]?.ToString() ?? string.Empty
             : throw new TestChainOutputMissingException(name);
-
 }
