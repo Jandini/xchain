@@ -138,13 +138,89 @@ chain.LinkWithCollection<PreviousCollection>(..., ...)
 
 Note: Collection timeouts default to **6 minutes**. This can be configured in the `CollectionChainLinkAwaitFixture`.
 
-### Global Metadata via Traits
+### Metadata via Traits
 
-Xchain includes a `TraitDiscoverer` that turns strongly-typed attributes into metadata for filtering and organizing tests.
+Xchain includes a flexible `TraitDiscoverer` that allows users to define their own strongly-typed attributes for tagging and organizing tests. These attributes can be applied at both the class and method levels, enabling structured metadata that can be used for filtering, grouping, and diagnostics.
+
+Below are two examples of custom attributes that a user of Xchain might define.
+
+#### Example: `MetadataAttribute` (Simple Category Tag)
+
+This attribute adds a single category to a test class or method. It's useful for basic test grouping.
 
 ```csharp
-[Metadata("SmokeTests")]
-public class MyTestSuite { }
+using Xunit.Sdk;
+
+namespace Xchain.Tests;
+
+[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public class MetadataAttribute(string category) : Attribute, ITraitAttribute
+{
+    public string Category { get; } = category;
+}
+```
+
+**Usage:**
+
+```csharp
+[Metadata("Xchain Collection")]
+[Collection("SecondCollection")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public class ConsumerCollection(CollectionChainContextFixture chain)
+    : IClassFixture<CollectionChainContextFixture>
+{
+    // Chained tests
+}
+```
+
+```csharp
+[Metadata("SmokeTest")]
+public async Task SmokeTest() => await chain.LinkAsync(...);
+```
+
+#### Example: `ChainTagAttribute` (Rich Metadata)
+
+This attribute demonstrates how to attach multiple pieces of metadata to a test, such as owner, category, and color. It can be used for diagnostics, ownership tracking, and enhanced reporting.
+
+```csharp
+using Xunit.Sdk;
+
+namespace Xchain.Tests;
+
+[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public class ChainTagAttribute(string? owner = null, string? category = null, string? color = null)
+    : Attribute, ITraitAttribute
+{
+    public string? Owner { get; set; } = owner;
+    public string? Category { get; set; } = category;
+    public string? Color { get; set; } = color;
+}
+```
+
+**Usage on a test method:**
+
+```csharp
+[FlowFact(Link = 10, Name = "Sleep 1 second")]
+[ChainTag(Owner = "Kethoneinuo", Category = "Important", Color = "Black")]
+public async Task Test3() =>
+    await chain.LinkAsync(async (output, cancellationToken) =>
+    {
+        const int sleep = 1000;
+        output["Sleep"] = sleep * 2;
+        await Task.Delay(sleep, cancellationToken);
+    }, TimeSpan.FromMilliseconds(100));
+```
+
+**Usage on a test class:**
+
+```csharp
+[ChainTag(Owner = "QA Team", Category = "Regression", Color = "Green")]
+public class RegressionSuite
+{
+    // Test methods here
+}
 ```
 
 This can be used to group collections and run them by trait.
