@@ -8,6 +8,7 @@
 /// Most real-world scenarios will benefit more from <see cref="CollectionChainLinkAwaitFixture{T}"/>,
 /// which supports coordination even with parallelism enabled.
 /// </remarks>
+[Obsolete("Use CollectionChainLinkAwaitFixture<T> and CollectionChainLinkSetupFixture<T> instead. CollectionChainOrderAttribute requires DisableTestParallelization = true and does not support parallel collection execution.")]
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public class CollectionChainOrderAttribute(int order) : Attribute
 {

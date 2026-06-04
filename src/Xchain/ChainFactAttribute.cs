@@ -36,8 +36,12 @@ public class ChainFactAttribute : SkippableFactAttribute
     public string Name
     {
         get => DisplayName;
-        set => DisplayName = Link == 0
-            ? value
-            : $"#{Link.ToString().PadLeft(Pad, '0')} | {(string.IsNullOrEmpty(Flow) ? "" : Flow + " | ")}{value}";
+        set
+        {
+            var flowPart = string.IsNullOrEmpty(Flow) ? "" : Flow + " | ";
+            DisplayName = Link == 0
+                ? (string.IsNullOrEmpty(Flow) ? value : $"{flowPart}{value}")
+                : $"#{Link.ToString().PadLeft(Pad, '0')} | {flowPart}{value}";
+        }
     }
 }

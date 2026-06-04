@@ -13,9 +13,16 @@
 public class CollectionChainContextFixture : TestChainContextFixture
 {
     private static readonly TestChainOutput _output = [];
+    private static readonly TestChainErrors _errors = [];
 
     /// <summary>
     /// Shared output storage across all test collections using this fixture.
     /// </summary>
     public override TestChainOutput Output => _output;
+
+    /// <summary>
+    /// Shared error stack across all test collections using this fixture.
+    /// Mirrors the static output so that cross-collection skipping via <see cref="TestChainContextFixtureExtensions.SkipIf{TException}"/> works correctly.
+    /// </summary>
+    public override TestChainErrors Errors => _errors;
 }

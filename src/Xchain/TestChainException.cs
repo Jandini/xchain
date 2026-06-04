@@ -18,7 +18,7 @@
 /// <param name="callerName">The method where the failure occurred.</param>
 /// <param name="callerFilePath">The source file path of the method.</param>
 /// <param name="callerLineNumber">The source code line where the failure was raised.</param>
-internal class TestChainException(
+public class TestChainException(
     Exception ex,
     TestChainErrors errors,
     string callerName,

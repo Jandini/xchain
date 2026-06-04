@@ -31,7 +31,7 @@ public class Test01(CollectionChainContextFixture chain)
     [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
     public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
-        var sleep = output.Get<int>("Sleep") * 10;
+        var sleep = output.Get<int>("Sleep");
         await Task.Delay(sleep, cancellationToken);
     });
 

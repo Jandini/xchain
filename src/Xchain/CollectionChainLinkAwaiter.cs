@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -10,49 +9,44 @@ namespace Xchain;
 /// until another has completed. Used to control execution order in parallel test environments.
 /// </summary>
 /// <remarks>
-/// A collection is marked as "active" on registration and "inactive" on unregistration.
-/// Waiting collections poll until the specified collection becomes inactive or the timeout expires.
-/// 
-/// TODO: Make this part of the registration, and add logging...
+/// Each registered collection gets a <see cref="ManualResetEventSlim"/> that is unsignaled while
+/// the collection runs and signaled when it completes. Waiting collections block on that event
+/// instead of polling, so there is no artificial delay between completion and continuation.
 /// </remarks>
 internal static class CollectionChainLinkAwaiter
 {
-    private static readonly ConcurrentDictionary<string, bool> ActiveCollections = new();
+    private static readonly ConcurrentDictionary<string, ManualResetEventSlim> ActiveCollections = new();
+
+    // Returns the shared event for a collection, creating it on first access so that
+    // waiters and registrants always get the same instance regardless of arrival order.
+    private static ManualResetEventSlim GetOrCreate(string name) =>
+        ActiveCollections.GetOrAdd(name, _ => new ManualResetEventSlim(false));
 
     /// <summary>
     /// Marks a collection as active (registered and executing).
+    /// Creates the shared completion event if not yet created.
     /// </summary>
-    public static void Register(string name) => ActiveCollections[name] = true;
+    public static void Register(string name) => GetOrCreate(name);
 
     /// <summary>
-    /// Marks a collection as complete (no longer executing).
+    /// Signals that a collection has completed so any waiting collections may continue.
     /// </summary>
-    public static void Unregister(string name) => ActiveCollections[name] = false;
+    public static void Unregister(string name) => GetOrCreate(name).Set();
 
     /// <summary>
-    /// Waits for the specified collection to complete execution or until the timeout is reached.
+    /// Blocks until the specified collection completes or the timeout is reached.
+    /// Safe to call before <see cref="Register"/> — both share the same event instance.
     /// </summary>
     /// <param name="name">The name of the collection to wait for.</param>
     /// <param name="timeout">The maximum time to wait.</param>
     /// <param name="messageSink">Optional diagnostic sink for test framework output.</param>
-    /// <exception cref="TimeoutException">Thrown if the timeout expires before the collection is marked complete.</exception>
+    /// <exception cref="TimeoutException">Thrown if the timeout expires before the collection signals completion.</exception>
     public static void WaitForCollection(string name, TimeSpan timeout, IMessageSink messageSink = null)
     {
-        var sw = Stopwatch.StartNew();
+        messageSink?.OnMessage(new DiagnosticMessage($"Waiting for collection '{name}' (timeout: {timeout.TotalSeconds}s)"));
 
-        // TODO: Consider integrating this with a more robust registration/logging system
-        messageSink?.OnMessage(new DiagnosticMessage($"A collection is waiting for {name} up to {timeout.TotalSeconds} seconds"));
-
-        while (true)
-        {
-            if (ActiveCollections.ContainsKey(name) && !ActiveCollections[name])
-                break;
-
-            if (sw.Elapsed > timeout)
-                throw new TimeoutException($"Timed out waiting for collection '{name}' to complete.");
-
-            Thread.Sleep(500);
-        }
+        if (!GetOrCreate(name).Wait(timeout))
+            throw new TimeoutException($"Timed out waiting for collection '{name}' to complete.");
     }
 }
 
