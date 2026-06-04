@@ -56,11 +56,11 @@ All public API lives in two static extension classes:
 
 ### Cross-collection orchestration
 
-Use `CollectionChainLinkSetupFixture<T>` and `CollectionChainLinkAwaitFixture<T>` as assembly fixtures to synchronize two collections. The await fixture blocks its collection's fixture construction until the target collection signals completion (default 360-second timeout).
+Use `CollectionChainSignalFixture<T>` and `CollectionChainAwaitFixture<T>` as assembly fixtures to synchronize two collections. The await fixture blocks its collection's fixture construction until the target collection signals completion (default 360-second timeout).
 
 ```csharp
 // In the depending collection's definition:
-public class MyAwait : CollectionChainLinkAwaitFixture<ProducerCollection>;
+public class MyAwait : CollectionChainAwaitFixture<ProducerCollection>;
 ```
 
 ### Strongly typed output keys

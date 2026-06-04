@@ -6,7 +6,7 @@ public class Collection02 :
     ICollectionFixture<Collection01_Await>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Collection01_Await : CollectionChainLinkAwaitFixture<Collection01Tests>;
+internal class Collection01_Await : CollectionChainAwaitFixture<Collection01Tests>;
 
 [Collection("Collection02")]
 public class Collection02Tests(CollectionChainContextFixture chain)

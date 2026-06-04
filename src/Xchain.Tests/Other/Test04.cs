@@ -1,11 +1,11 @@
 namespace Xchain.Tests.Other;
 
-// "Four" collection demonstrates CollectionChainFixture<TAwait, TRegister> —
+// "Four" collection demonstrates CollectionChainNextFixture<TAwait, TRegister> —
 // a single fixture that both awaits Test01 AND registers Test04 for any downstream consumers.
-// This replaces the two-class pattern (CollectionChainLinkAwaitFixture + CollectionChainLinkSetupFixture).
+// This replaces the two-class pattern (CollectionChainAwaitFixture + CollectionChainSignalFixture).
 [CollectionDefinition("Four")]
 public class FourCollection :
-    ICollectionFixture<CollectionChainFixture<Test01, Test04>>,
+    ICollectionFixture<CollectionChainNextFixture<Test01, Test04>>,
     ICollectionFixture<CollectionChainContextFixture>;
 
 
@@ -14,8 +14,8 @@ public class FourCollection :
 public class Test04(CollectionChainContextFixture chain)
 {
     // Demonstrates: reading cross-collection output works identically whether you used
-    // the old two-fixture pattern or the new CollectionChainFixture<TAwait, TRegister>.
-    [ChainFact(Link = 1, Name = "Read Sleep value from Test01 (via CollectionChainFixture)")]
+    // the old two-fixture pattern or the new CollectionChainNextFixture<TAwait, TRegister>.
+    [ChainFact(Link = 1, Name = "Read Sleep value from Test01 (via CollectionChainNextFixture)")]
     public void LinkedTest1() =>
         chain.LinkWithCollection<Test01>("Sleep", output =>
         {

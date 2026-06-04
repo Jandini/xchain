@@ -117,14 +117,14 @@ If the timeout elapses, a `TimeoutException` is pushed to the error stack and th
 
 When your scenario spans multiple xUnit test collections, use `CollectionChainContextFixture` (instead of `TestChainContextFixture`) so that `Output` and `Errors` are shared as static state across all collections.
 
-### Simplified: `CollectionChainFixture<TAwait, TRegister>`
+### Simplified: `CollectionChainNextFixture<TAwait, TRegister>`
 
 For a collection that both **depends on** another collection and **is itself a dependency** for something downstream, use the combined fixture:
 
 ```csharp
 [CollectionDefinition("SecondCollection")]
 public class SecondCollectionDefinition :
-    ICollectionFixture<CollectionChainFixture<ProducerCollection, ConsumerCollection>>,
+    ICollectionFixture<CollectionChainNextFixture<ProducerCollection, ConsumerCollection>>,
     ICollectionFixture<CollectionChainContextFixture>;
 
 [Collection("SecondCollection")]
@@ -146,31 +146,31 @@ public class ConsumerCollection(CollectionChainContextFixture chain)
 }
 ```
 
-`CollectionChainFixture<TAwait, TRegister>` does two things in one:
+`CollectionChainNextFixture<TAwait, TRegister>` does two things in one:
 1. Blocks until `TAwait` (the producer) completes before any tests in this collection start.
 2. Registers `TRegister` (this collection) so further downstream collections can wait for it.
 
 The default timeout is 360 seconds. To use a custom timeout, subclass it:
 
 ```csharp
-internal class MyFixture : CollectionChainFixture<ProducerCollection, ConsumerCollection>
+internal class MyFixture : CollectionChainNextFixture<ProducerCollection, ConsumerCollection>
 {
     public MyFixture() : base(TimeSpan.FromMinutes(5)) { }
 }
 ```
 
-### Explicit: separate Setup and Await fixtures
+### Explicit: separate Signal and Await fixtures
 
-Use this when a collection only needs to wait (not register), or when you need `IMessageSink` diagnostics:
+Use this when a collection only needs to wait (not signal), or when you need `IMessageSink` diagnostics:
 
 ```csharp
-// Producer — registers itself, does not wait for anything
+// Producer — signals itself, does not wait for anything
 [CollectionDefinition("FirstCollection")]
 public class FirstCollectionDefinition :
-    ICollectionFixture<ProducerSetupFixture>,
+    ICollectionFixture<ProducerSignalFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class ProducerSetupFixture : CollectionChainLinkSetupFixture<ProducerCollection>;
+internal class ProducerSignalFixture : CollectionChainSignalFixture<ProducerCollection>;
 
 [Collection("FirstCollection")]
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -182,13 +182,13 @@ public class ProducerCollection(CollectionChainContextFixture chain)
 }
 
 
-// Consumer — waits for producer, does not register itself
+// Consumer — waits for producer, does not signal itself
 [CollectionDefinition("SecondCollection")]
 public class SecondCollectionDefinition :
     ICollectionFixture<ProducerAwaitFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class ProducerAwaitFixture : CollectionChainLinkAwaitFixture<ProducerCollection>;
+internal class ProducerAwaitFixture : CollectionChainAwaitFixture<ProducerCollection>;
 
 [Collection("SecondCollection")]
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -302,7 +302,7 @@ If you have collections that share `CollectionChainContextFixture` but are **not
 
 ### `CollectionChainOrderer` and `CollectionChainOrderAttribute` are deprecated
 
-These types are marked `[Obsolete]`. They required `[assembly: CollectionBehavior(DisableTestParallelization = true)]` which blocks all parallel test execution. Use `CollectionChainFixture<TAwait, TRegister>`, `CollectionChainLinkSetupFixture<T>`, and `CollectionChainLinkAwaitFixture<T>` instead — they coordinate collections without disabling parallelism.
+These types are marked `[Obsolete]`. They required `[assembly: CollectionBehavior(DisableTestParallelization = true)]` which blocks all parallel test execution. Use `CollectionChainNextFixture<TAwait, TRegister>`, `CollectionChainSignalFixture<T>`, and `CollectionChainAwaitFixture<T>` instead — they coordinate collections without disabling parallelism.
 
 ---
 

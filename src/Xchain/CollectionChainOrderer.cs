@@ -9,9 +9,9 @@ namespace Xchain;
 /// <remarks>
 /// This orderer only takes effect if test parallelism is disabled across the assembly:
 /// <code>[assembly: CollectionBehavior(DisableTestParallelization = true)]</code>
-/// In most scenarios, prefer <see cref="CollectionChainLinkAwaitFixture{T}"/> for flexible, parallel-safe coordination.
+/// In most scenarios, prefer <see cref="CollectionChainAwaitFixture{T}"/> for flexible, parallel-safe coordination.
 /// </remarks>
-[Obsolete("Use CollectionChainLinkAwaitFixture<T> and CollectionChainLinkSetupFixture<T> instead. CollectionChainOrderer requires DisableTestParallelization = true and does not support parallel collection execution.")]
+[Obsolete("Use CollectionChainAwaitFixture<T> and CollectionChainSignalFixture<T> instead. CollectionChainOrderer requires DisableTestParallelization = true and does not support parallel collection execution.")]
 public class CollectionChainOrderer : ITestCollectionOrderer
 {
     /// <summary>

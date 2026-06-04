@@ -7,31 +7,31 @@ namespace Xchain;
 /// <typeparam name="TAwait">The collection type to wait for before running.</typeparam>
 /// <typeparam name="TRegister">The collection type being registered (typically the owning test class).</typeparam>
 /// <remarks>
-/// Replaces the two-fixture pattern of separately deriving from <see cref="CollectionChainLinkAwaitFixture{T}"/>
-/// and <see cref="CollectionChainLinkSetupFixture{T}"/>. Use this when a collection both depends on another
+/// Replaces the two-fixture pattern of separately deriving from <see cref="CollectionChainAwaitFixture{T}"/>
+/// and <see cref="CollectionChainSignalFixture{T}"/>. Use this when a collection both depends on another
 /// and is itself a dependency for downstream collections.
 ///
 /// <code>
 /// [CollectionDefinition("SecondCollection")]
 /// public class SecondCollectionDefinition :
-///     ICollectionFixture&lt;CollectionChainFixture&lt;ProducerCollection, ConsumerCollection&gt;&gt;,
+///     ICollectionFixture&lt;CollectionChainNextFixture&lt;ProducerCollection, ConsumerCollection&gt;&gt;,
 ///     ICollectionFixture&lt;CollectionChainContextFixture&gt;;
 /// </code>
 /// </remarks>
-public class CollectionChainFixture<TAwait, TRegister> : IDisposable
+public class CollectionChainNextFixture<TAwait, TRegister> : IDisposable
 {
     /// <summary>
     /// Waits for <typeparamref name="TAwait"/> to complete (default 360-second timeout)
     /// and registers <typeparamref name="TRegister"/> for downstream consumers.
     /// </summary>
-    public CollectionChainFixture() : this(TimeSpan.FromSeconds(360)) { }
+    public CollectionChainNextFixture() : this(TimeSpan.FromSeconds(360)) { }
 
     /// <summary>
     /// Waits for <typeparamref name="TAwait"/> to complete with a custom timeout
     /// and registers <typeparamref name="TRegister"/> for downstream consumers.
     /// Subclass with a public parameterless constructor to use a custom timeout.
     /// </summary>
-    protected CollectionChainFixture(TimeSpan timeout)
+    protected CollectionChainNextFixture(TimeSpan timeout)
     {
         CollectionChainLinkAwaiter.WaitForCollection(typeof(TAwait).Name, timeout);
         CollectionChainLinkAwaiter.Register(typeof(TRegister).Name);

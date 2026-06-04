@@ -3,10 +3,10 @@
 [CollectionDefinition("Collection01")]
 [Metadata("SharedChain")]
 public class Collection01 :
-    ICollectionFixture<Collection01_Register>,
+    ICollectionFixture<Collection01_Signal>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Collection01_Register : CollectionChainLinkSetupFixture<Collection01Tests>;
+internal class Collection01_Signal : CollectionChainSignalFixture<Collection01Tests>;
 
 [Collection("Collection01")]
 public class Collection01Tests(CollectionChainContextFixture chain)
