@@ -39,6 +39,13 @@ Versioning is managed by `GitVersion.MsBuild` (see `GitVersion.yml`). NuGet push
 | `TestChainErrors` | Stack of `TestChainException` — accumulated failure history for the current fixture scope. |
 | `TestChainContextFixture` | Per-class fixture (`IClassFixture<T>`). Holds `Output` and `Errors`. |
 | `CollectionChainContextFixture` | Cross-collection fixture. `Output` is a `static` field shared across all collections; use globally unique keys or `TestOutput<TCollection, T>` wrappers. |
+| `CollectionChainSignalFixture<T>` | Registers collection T with the internal awaiter on construction; unregisters (signals done) on disposal. |
+| `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion. Four constructors (timeout / IMessageSink variants). |
+| `CollectionChainAwait<T>` | Single-constructor wrapper around `CollectionChainAwaitFixture<T>` for direct use in `ICollectionFixture<>` declarations. |
+| `CollectionChainNextFixture<TAwait, T>` | Combined: awaits TAwait then signals T. Replaces the separate signal + await two-fixture pattern. |
+| `CollectionChainStartDefinition<T>` | Abstract `[CollectionDefinition]` base for the first collection in a chain. Inherits Signal + Context fixtures. |
+| `CollectionChainNextDefinition<TAwait, T>` | Abstract `[CollectionDefinition]` base for middle collections. Inherits NextFixture + Context fixtures. |
+| `CollectionChainEndDefinition<TAwait>` | Abstract `[CollectionDefinition]` base for the last collection in a chain. Inherits Await + Context fixtures. |
 
 ### Extension methods (the actual API)
 
@@ -63,9 +70,13 @@ Use `CollectionChainSignalFixture<T>` and `CollectionChainAwaitFixture<T>` as as
 public class MyAwait : CollectionChainAwaitFixture<ProducerCollection>;
 ```
 
+### Reusable chain templates
+
+For running the same chain steps against multiple subjects (e.g. two clients), use the CRTP pattern: declare `abstract class CreateClientChain<TSelf>` and inherit as `class ClientA : CreateClientChain<ClientA>`. `TSelf` is used in `TestOutput<TSelf, T>` to auto-namespace output keys per instance. Put `[TestCaseOrderer]` on the abstract base — xUnit inherits it. See README "Reusable Chain Templates" and `src/Xchain.Tests/Templates/` for a full example.
+
 ### Strongly typed output keys
 
-`TestOutput<TCollection, TOutput>` namespaces a string key by prefixing it with the collection type name, preventing collisions in the global `CollectionChainContextFixture.Output`. Define these as extension methods on `TestChainOutput` and use `.Put(value)` / `.Get()` for type-safe access.
+`TestOutput<TCollection, TOutput>` namespaces a string key by prefixing it with the **fully qualified** type name (`FullName ?? Name`), preventing collisions in the global `CollectionChainContextFixture.Output`. Define these as extension methods on `TestChainOutput` and use `.Put(value)` / `.Get()` for type-safe access.
 
 ### Trait metadata
 

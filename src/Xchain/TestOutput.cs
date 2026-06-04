@@ -9,7 +9,7 @@ namespace Xchain;
 /// <typeparam name="TOutput">The type of the value to retrieve or store.</typeparam>
 public class TestOutput<TCollection, TOutput>(TestChainOutput output, string suffix = null)
 {
-    public string Key { get => $"{typeof(TCollection).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"; }
+    public string Key { get => $"{typeof(TCollection).FullName ?? typeof(TCollection).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"; }
 
     /// <summary>
     /// Retrieves a value of type <typeparamref name="TOutput"/> from the output dictionary

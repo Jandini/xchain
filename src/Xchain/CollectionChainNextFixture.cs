@@ -33,13 +33,13 @@ public class CollectionChainNextFixture<TAwait, TRegister> : IDisposable
     /// </summary>
     protected CollectionChainNextFixture(TimeSpan timeout)
     {
-        CollectionChainLinkAwaiter.WaitForCollection(typeof(TAwait).Name, timeout);
-        CollectionChainLinkAwaiter.Register(typeof(TRegister).Name);
+        CollectionChainLinkAwaiter.WaitForCollection(typeof(TAwait).FullName ?? typeof(TAwait).Name, timeout);
+        CollectionChainLinkAwaiter.Register(typeof(TRegister).FullName ?? typeof(TRegister).Name);
     }
 
     /// <summary>
     /// Signals that <typeparamref name="TRegister"/> has completed.
     /// </summary>
     public void Dispose() =>
-        CollectionChainLinkAwaiter.Unregister(typeof(TRegister).Name);
+        CollectionChainLinkAwaiter.Unregister(typeof(TRegister).FullName ?? typeof(TRegister).Name);
 }

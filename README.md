@@ -228,7 +228,7 @@ public static class OutputKeys
 }
 ```
 
-The key is automatically prefixed with the type name (e.g., `ProducerCollection_ResourceId`), making it unique per collection.
+The key is automatically prefixed with the fully qualified type name (e.g., `MyNamespace.ProducerCollection_ResourceId`), making it unique per collection even across namespaces.
 
 ```csharp
 // Producer
@@ -239,6 +239,224 @@ chain.LinkWithCollection<ProducerCollection>(
     output.ResourceId<ProducerCollection>(),
     output => Assert.NotEqual(Guid.Empty, output.ResourceId<ProducerCollection>().Get()));
 ```
+
+---
+
+## Reusable Chain Templates
+
+When the same sequence of steps needs to run against multiple subjects (e.g. two different clients, two different projects), duplicating test classes is fragile and hard to maintain. Xchain solves this with a pattern that combines abstract base test classes, three collection definition helpers, and a generic parameter trick to keep output keys isolated.
+
+### The scenario
+
+Three templates, two parallel workflows:
+
+```
+ClientA ──► ProjectA ──► ImportA
+ClientB ──► ProjectB ──► ImportB
+```
+
+`CreateClientChain`, `CreateProjectChain`, and `ImportDataChain` are each written once. `ClientA`/`ClientB`, `ProjectA`/`ProjectB`, and `ImportA`/`ImportB` are six concrete classes that inherit from those templates. Both workflows run in parallel — they share no dependencies and can race freely.
+
+### Execution timeline
+
+```
+────────────────────────────────────────────────── time ──────────────────────────────────►
+
+ClientA  ██████████████▶ signal
+ClientB  ██████████▶ signal                         (A and B run in parallel)
+
+                  ProjectA  (awaits ClientA) ██████████████▶ signal
+                  ProjectB  (awaits ClientB) ██████████▶ signal
+
+                                       ImportA  (awaits ProjectA) ████████
+                                       ImportB  (awaits ProjectB) ████████
+```
+
+### Collection definition helpers
+
+Every collection in a chain needs fixtures to wire up the signal/await coordination. Xchain provides three abstract base classes so this reduces to a single line per collection:
+
+| Base class | Position | What it provides |
+|---|---|---|
+| `CollectionChainStartDefinition<T>` | First — signals only | `CollectionChainSignalFixture<T>` + `CollectionChainContextFixture` |
+| `CollectionChainNextDefinition<TAwait, T>` | Middle — awaits predecessor + signals self | `CollectionChainNextFixture<TAwait, T>` + `CollectionChainContextFixture` |
+| `CollectionChainEndDefinition<TAwait>` | Last — awaits only, no signal | `CollectionChainAwait<TAwait>` + `CollectionChainContextFixture` |
+
+```csharp
+[CollectionDefinition("FlowA_01_Client")]
+public class ClientADefinition : CollectionChainStartDefinition<ClientA>;
+
+[CollectionDefinition("FlowA_02_Project")]
+public class ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>;
+
+[CollectionDefinition("FlowA_03_Import")]
+public class ImportADefinition : CollectionChainEndDefinition<ProjectA>;
+```
+
+### The CRTP pattern — output isolation
+
+When `ClientA` and `ClientB` both run the same `CreateClientChain` template, they must not overwrite each other's output keys. The solution is the **CRTP pattern** (Curiously Recurring Template Pattern): the abstract base takes the concrete subclass as a generic parameter, so it can generate a namespaced key without the subclass doing anything extra.
+
+```csharp
+// General shape: the base "knows" the subclass type via TSelf
+abstract class Base<TSelf> { }
+class Derived : Base<Derived> { }   // TSelf = Derived inside Base
+```
+
+Applied here:
+
+```csharp
+public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1)]
+    public void CreateClient() =>
+        chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
+}
+
+public class ClientA(...) : CreateClientChain<ClientA>(...);  // TSelf = ClientA
+public class ClientB(...) : CreateClientChain<ClientB>(...);  // TSelf = ClientB
+```
+
+`TestOutput<ClientA, Guid>` generates key `"MyTests.ClientA_ClientId"` and `TestOutput<ClientB, Guid>` generates `"MyTests.ClientB_ClientId"`. The keys are structurally distinct — no naming convention required, no runtime check.
+
+### `[TestCaseOrderer]` inheritance
+
+Place `[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]` on the abstract template base, **not** on every concrete class. xUnit inherits attributes declared with `Inherited = true`, and `TestCaseOrdererAttribute` is one of them — all subclasses pick it up automatically.
+
+```csharp
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]   // ← declared once here
+public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Create client")]
+    public void CreateClient() => ...
+
+    [ChainFact(Link = 2, Name = "Verify client")]
+    public void VerifyClient() => ...
+}
+
+[Collection("ClientA")]
+public class ClientA(...) : CreateClientChain<ClientA>(...);  // [TestCaseOrderer] inherited
+```
+
+### Full example — one workflow
+
+**Step 1: output key extensions**
+
+```csharp
+public static class ChainOutputKeys
+{
+    public static TestOutput<T, Guid>   ClientId<T>(this TestChainOutput o) => new(o, "ClientId");
+    public static TestOutput<T, string> ProjectId<T>(this TestChainOutput o) => new(o, "ProjectId");
+    public static TestOutput<T, string> ImportId<T>(this TestChainOutput o) => new(o, "ImportId");
+}
+```
+
+**Step 2: templates**
+
+```csharp
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Create client")]
+    public void CreateClient() =>
+        chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
+
+    [ChainFact(Link = 2, Name = "Verify client")]
+    public void VerifyClient() =>
+        chain.LinkUnless<Exception>(output =>
+            Assert.NotEqual(Guid.Empty, output.ClientId<TSelf>().Get()));
+}
+
+// TClient is the upstream collection type — used to read its output key
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public abstract class CreateProjectChain<TSelf, TClient>(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Create project")]
+    public void CreateProject() =>
+        chain.LinkWithCollection(chain.Output.ClientId<TClient>(), output =>
+        {
+            var clientId = output.ClientId<TClient>().Get();
+            output.ProjectId<TSelf>().Put($"project-for-{clientId}");
+        });
+
+    [ChainFact(Link = 2, Name = "Verify project")]
+    public void VerifyProject() =>
+        chain.LinkUnless<Exception>(output =>
+            Assert.NotEmpty(output.ProjectId<TSelf>().Get()));
+}
+
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public abstract class ImportDataChain<TSelf, TProject>(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Import data")]
+    public void ImportData() =>
+        chain.LinkWithCollection(chain.Output.ProjectId<TProject>(), output =>
+        {
+            var projectId = output.ProjectId<TProject>().Get();
+            output.ImportId<TSelf>().Put($"import-for-{projectId}");
+        });
+
+    [ChainFact(Link = 2, Name = "Verify import")]
+    public void VerifyImport() =>
+        chain.LinkUnless<Exception>(output =>
+            Assert.NotEmpty(output.ImportId<TSelf>().Get()));
+}
+```
+
+**Step 3: workflow A instances**
+
+```csharp
+[CollectionDefinition("FlowA_01_Client")]
+public class ClientADefinition : CollectionChainStartDefinition<ClientA>;
+
+[Collection("FlowA_01_Client")]                 // [TestCaseOrderer] inherited from base
+public class ClientA(CollectionChainContextFixture chain) : CreateClientChain<ClientA>(chain);
+
+
+[CollectionDefinition("FlowA_02_Project")]
+public class ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>;
+
+[Collection("FlowA_02_Project")]
+public class ProjectA(CollectionChainContextFixture chain) : CreateProjectChain<ProjectA, ClientA>(chain);
+
+
+[CollectionDefinition("FlowA_03_Import")]
+public class ImportADefinition : CollectionChainEndDefinition<ProjectA>;
+
+[Collection("FlowA_03_Import")]
+public class ImportA(CollectionChainContextFixture chain) : ImportDataChain<ImportA, ProjectA>(chain);
+```
+
+**Step 4: workflow B — same templates, different instances**
+
+```csharp
+[CollectionDefinition("FlowB_01_Client")]
+public class ClientBDefinition : CollectionChainStartDefinition<ClientB>;
+
+[Collection("FlowB_01_Client")]
+public class ClientB(CollectionChainContextFixture chain) : CreateClientChain<ClientB>(chain);
+
+
+[CollectionDefinition("FlowB_02_Project")]
+public class ProjectBDefinition : CollectionChainNextDefinition<ClientB, ProjectB>;
+
+[Collection("FlowB_02_Project")]
+public class ProjectB(CollectionChainContextFixture chain) : CreateProjectChain<ProjectB, ClientB>(chain);
+
+
+[CollectionDefinition("FlowB_03_Import")]
+public class ImportBDefinition : CollectionChainEndDefinition<ProjectB>;
+
+[Collection("FlowB_03_Import")]
+public class ImportB(CollectionChainContextFixture chain) : ImportDataChain<ImportB, ProjectB>(chain);
+```
+
+> **Constraints**
+>
+> - **Type name must be unique**: the awaiter coordination key and `TestOutput` key both use `typeof(T).FullName`. If two classes share the same full name (namespace + class), they will collide. This is a compile-time error in C#, so it can't happen accidentally.
+> - **`TAwait` and upstream type param must agree**: `ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>` awaits `ClientA`, and `CreateProjectChain<ProjectA, ClientA>` reads `ClientA`'s output. These two `ClientA` references must match — there is no compiler check across the definition class and test class.
+> - **`CollectionChainAwait<T>` vs `CollectionChainAwaitFixture<T>`**: use `CollectionChainAwait<T>` in `ICollectionFixture` declarations (single constructor). Use `CollectionChainAwaitFixture<T>` only when subclassing to provide a custom timeout.
+> - **`TestOutput.Key` uses `FullName`**: the generated key is `"My.Namespace.ClassName_suffix"`. Raw string access like `output["ClientA_suffix"]` breaks — use `TestOutput<T>` accessors which read the key dynamically.
 
 ---
 

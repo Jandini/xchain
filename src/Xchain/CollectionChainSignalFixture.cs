@@ -14,11 +14,11 @@ public class CollectionChainSignalFixture<T> : IDisposable
     /// Registers the collection using the name of the <typeparamref name="T"/> type.
     /// </summary>
     public CollectionChainSignalFixture() =>
-        CollectionChainLinkAwaiter.Register(typeof(T).Name);
+        CollectionChainLinkAwaiter.Register(typeof(T).FullName ?? typeof(T).Name);
 
     /// <summary>
     /// Marks the registered collection as complete so that any waiting collections may continue.
     /// </summary>
     public void Dispose() =>
-        CollectionChainLinkAwaiter.Unregister(typeof(T).Name);
+        CollectionChainLinkAwaiter.Unregister(typeof(T).FullName ?? typeof(T).Name);
 }

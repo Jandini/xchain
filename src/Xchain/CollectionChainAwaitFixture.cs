@@ -16,21 +16,21 @@ public class CollectionChainAwaitFixture<TCollection>
     /// Waits for the specified collection to complete, using a default timeout of 360 seconds.
     /// </summary>
     public CollectionChainAwaitFixture() =>
-        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).Name, TimeSpan.FromSeconds(360));
+        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).FullName ?? typeof(TCollection).Name, TimeSpan.FromSeconds(360));
 
     /// <summary>
     /// Waits for the specified collection to complete with diagnostics enabled.
     /// </summary>
     /// <param name="messageSink">Used to log test framework messages.</param>
     public CollectionChainAwaitFixture(IMessageSink messageSink) =>
-        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).Name, TimeSpan.FromSeconds(360), messageSink);
+        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).FullName ?? typeof(TCollection).Name, TimeSpan.FromSeconds(360), messageSink);
 
     /// <summary>
     /// Waits for the specified collection to complete using a custom timeout.
     /// </summary>
     /// <param name="timeout">Maximum time to wait for the collection to finish.</param>
     public CollectionChainAwaitFixture(TimeSpan timeout) : base() =>
-        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).Name, timeout);
+        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).FullName ?? typeof(TCollection).Name, timeout);
 
     /// <summary>
     /// Waits for the specified collection to complete with a custom timeout and diagnostics.
@@ -38,5 +38,5 @@ public class CollectionChainAwaitFixture<TCollection>
     /// <param name="timeout">Maximum time to wait.</param>
     /// <param name="messageSink">Used for diagnostic output.</param>
     public CollectionChainAwaitFixture(TimeSpan timeout, IMessageSink messageSink) : base() =>
-        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).Name, timeout, messageSink);
+        CollectionChainLinkAwaiter.WaitForCollection(typeof(TCollection).FullName ?? typeof(TCollection).Name, timeout, messageSink);
 }
