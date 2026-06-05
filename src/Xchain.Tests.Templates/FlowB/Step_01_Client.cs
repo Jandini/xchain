@@ -1,4 +1,3 @@
-using Xchain.Tests.Templates;
 
 namespace Xchain.Tests.Templates.FlowB;
 

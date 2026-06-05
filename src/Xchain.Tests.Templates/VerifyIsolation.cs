@@ -1,22 +1,23 @@
 using FlowA = Xchain.Tests.Templates.FlowA;
 using FlowB = Xchain.Tests.Templates.FlowB;
+using FlowC = Xchain.Tests.Templates.FlowC;
 
 namespace Xchain.Tests.Templates;
 
-// Final collection — runs after all three chains (FlowA, FlowB, and cross-flow ProjectC)
-// have fully completed. Asserts that the CRTP output isolation held at runtime.
+// Final collection — runs after all three flows have fully completed.
+// Asserts that CRTP output isolation held at runtime across all flows.
 //
-// Multiple upstream dependencies require inline fixture declarations (same reason as ProjectC).
+// Multiple upstream dependencies require inline fixture declarations.
 // No SignalFixture needed — nothing awaits VerifyIsolation.
 //
-//   FlowA.Step_03_Import ──┐
-//   FlowB.Step_03_Import ──┼──► VerifyIsolation
-//   ProjectC             ──┘
+//   FlowA.Step_03_Import   ──┐
+//   FlowB.Step_03_Import   ──┼──► VerifyIsolation
+//   FlowC.Step_01_Project  ──┘
 [CollectionDefinition("VerifyIsolation")]
 public class VerifyIsolationDefinition :
     ICollectionFixture<CollectionChainAwait<FlowA.Step_03_Import>>,
     ICollectionFixture<CollectionChainAwait<FlowB.Step_03_Import>>,
-    ICollectionFixture<CollectionChainAwait<ProjectC>>,
+    ICollectionFixture<CollectionChainAwait<FlowC.Step_01_Project>>,
     ICollectionFixture<CollectionChainContextFixture>;
 
 [Collection("VerifyIsolation")]
@@ -24,9 +25,8 @@ public class VerifyIsolationDefinition :
 public class VerifyIsolation(CollectionChainContextFixture chain)
 {
     // Confirms that the CRTP type parameter + namespace produces structurally different
-    // output keys. These are pure string comparisons — no execution dependency.
-    // FlowA.Step_01_Client and FlowB.Step_01_Client are different types (different FullName),
-    // so their keys differ even though the class name is identical.
+    // output keys. FlowA.Step_01_Client and FlowB.Step_01_Client are different types
+    // (different FullName), so their keys differ even though the class name is identical.
     [ChainFact(Link = 1, Name = "Verify output keys are isolated across all flows")]
     public void VerifyKeyIsolation() =>
         chain.Link(output =>
@@ -38,7 +38,7 @@ public class VerifyIsolation(CollectionChainContextFixture chain)
                             output.ProjectId<FlowB.Step_02_Project>().Key);
 
             Assert.NotEqual(output.ProjectId<FlowA.Step_02_Project>().Key,
-                            output.ProjectId<ProjectC>().Key);
+                            output.ProjectId<FlowC.Step_01_Project>().Key);
 
             Assert.NotEqual(output.ImportId<FlowA.Step_03_Import>().Key,
                             output.ImportId<FlowB.Step_03_Import>().Key);
@@ -54,7 +54,7 @@ public class VerifyIsolation(CollectionChainContextFixture chain)
 
             var projectA = output.ProjectId<FlowA.Step_02_Project>().Get();
             var projectB = output.ProjectId<FlowB.Step_02_Project>().Get();
-            var projectC = output.ProjectId<ProjectC>().Get();
+            var projectC = output.ProjectId<FlowC.Step_01_Project>().Get();
             Assert.NotEmpty(projectA);
             Assert.NotEmpty(projectB);
             Assert.NotEmpty(projectC);

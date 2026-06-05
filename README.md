@@ -248,28 +248,38 @@ When the same sequence of steps needs to run against multiple subjects (e.g. two
 
 ### The scenario
 
-Three templates, two parallel workflows:
+Three templates (`CreateClientChain`, `CreateProjectChain`, `ImportDataChain`), each written once and instantiated into two independent parallel flows:
 
 ```
-ClientA ──► ProjectA ──► ImportA
-ClientB ──► ProjectB ──► ImportB
+FlowA:  Step_01_Client ──► Step_02_Project ──► Step_03_Import
+FlowB:  Step_01_Client ──► Step_02_Project ──► Step_03_Import
 ```
 
-`CreateClientChain`, `CreateProjectChain`, and `ImportDataChain` are each written once. `ClientA`/`ClientB`, `ProjectA`/`ProjectB`, and `ImportA`/`ImportB` are six concrete classes that inherit from those templates. Both workflows run in parallel — they share no dependencies and can race freely.
+Both flows run in parallel — they share no dependencies and can race freely. A third flow (`FlowC`) demonstrates fan-in: it has no client of its own and instead awaits results from both upstream flows before running.
+
+```
+FlowA:  Step_01_Client ────────────────────────────────────────► Step_02_Project ──► Step_03_Import
+                     │                                                                              
+FlowC:               └─────────────────────────────────────────────────────────► Step_01_Project
+                                                                                  ▲
+FlowB:  Step_01_Client ──► Step_02_Project ──► Step_03_Import ───────────────────┘
+```
 
 ### Execution timeline
 
 ```
-────────────────────────────────────────────────── time ──────────────────────────────────►
+────────────────────────────────────────────────────── time ──────────────────────────────────►
 
-ClientA  ██████████████▶ signal
-ClientB  ██████████▶ signal                         (A and B run in parallel)
+FlowA:  Step_01_Client  ██████████████▶ signal
+FlowB:  Step_01_Client  ██████████▶ signal          (flows start in parallel)
 
-                  ProjectA  (awaits ClientA) ██████████████▶ signal
-                  ProjectB  (awaits ClientB) ██████████▶ signal
+        FlowA: Step_02_Project  (awaits FlowA client) ██████████████▶ signal
+        FlowB: Step_02_Project  (awaits FlowB client) ██████████▶ signal
 
-                                       ImportA  (awaits ProjectA) ████████
-                                       ImportB  (awaits ProjectB) ████████
+                FlowA: Step_03_Import  (awaits FlowA project) ████████▶ signal
+                FlowB: Step_03_Import  (awaits FlowB project) ████████▶ signal
+
+                        FlowC: Step_01_Project  (awaits FlowA client + FlowB import) ████████
 ```
 
 ### Collection definition helpers
@@ -283,19 +293,19 @@ Every collection in a chain needs fixtures to wire up the signal/await coordinat
 | `CollectionChainEndDefinition<TAwait>` | Last — awaits only, no signal | `CollectionChainAwait<TAwait>` + `CollectionChainContextFixture` |
 
 ```csharp
-[CollectionDefinition("FlowA_01_Client")]
-public class ClientADefinition : CollectionChainStartDefinition<ClientA>;
+[CollectionDefinition("ClientA")]
+public class Step_01_ClientDefinition : CollectionChainStartDefinition<Step_01_Client>;
 
-[CollectionDefinition("FlowA_02_Project")]
-public class ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>;
+[CollectionDefinition("ProjectA")]
+public class Step_02_ProjectDefinition : CollectionChainNextDefinition<Step_01_Client, Step_02_Project>;
 
-[CollectionDefinition("FlowA_03_Import")]
-public class ImportADefinition : CollectionChainEndDefinition<ProjectA>;
+[CollectionDefinition("ImportA")]
+public class Step_03_ImportDefinition : CollectionChainNextDefinition<Step_02_Project, Step_03_Import>;
 ```
 
 ### The CRTP pattern — output isolation
 
-When `ClientA` and `ClientB` both run the same `CreateClientChain` template, they must not overwrite each other's output keys. The solution is the **CRTP pattern** (Curiously Recurring Template Pattern): the abstract base takes the concrete subclass as a generic parameter, so it can generate a namespaced key without the subclass doing anything extra.
+When FlowA and FlowB both run the same `CreateClientChain` template, they must not overwrite each other's output keys. The solution is the **CRTP pattern** (Curiously Recurring Template Pattern): the abstract base takes the concrete subclass as a generic parameter so it can namespace output keys automatically — without the subclass doing anything extra.
 
 ```csharp
 // General shape: the base "knows" the subclass type via TSelf
@@ -303,44 +313,39 @@ abstract class Base<TSelf> { }
 class Derived : Base<Derived> { }   // TSelf = Derived inside Base
 ```
 
-Applied here:
+Applied here, each flow's `Step_01_Client` passes itself as `TSelf`. Because the two classes live in different namespaces (`FlowA` vs `FlowB`), their `FullName` values differ and so do their output keys:
 
-```csharp
-public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
-{
-    [ChainFact(Link = 1)]
-    public void CreateClient() =>
-        chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
-}
-
-public class ClientA(...) : CreateClientChain<ClientA>(...);  // TSelf = ClientA
-public class ClientB(...) : CreateClientChain<ClientB>(...);  // TSelf = ClientB
+```
+FlowA.Step_01_Client → key "MyProject.FlowA.Step_01_Client_ClientId"
+FlowB.Step_01_Client → key "MyProject.FlowB.Step_01_Client_ClientId"
 ```
 
-`TestOutput<ClientA, Guid>` generates key `"MyTests.ClientA_ClientId"` and `TestOutput<ClientB, Guid>` generates `"MyTests.ClientB_ClientId"`. The keys are structurally distinct — no naming convention required, no runtime check.
+No naming convention required — the isolation is structural.
 
 ### `[TestCaseOrderer]` inheritance
 
 Place `[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]` on the abstract template base, **not** on every concrete class. xUnit inherits attributes declared with `Inherited = true`, and `TestCaseOrdererAttribute` is one of them — all subclasses pick it up automatically.
 
 ```csharp
-[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]   // ← declared once here
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]   // ← declared once on the base
 public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
 {
-    [ChainFact(Link = 1, Name = "Create client")]
-    public void CreateClient() => ...
+    [ChainFact(Link = 2, Name = "Verify client")]   // declared first in source...
+    public void VerifyClient() => ...               // ...but runs second (Link=2)
 
-    [ChainFact(Link = 2, Name = "Verify client")]
-    public void VerifyClient() => ...
+    [ChainFact(Link = 1, Name = "Create client")]   // declared second in source...
+    public void CreateClient() => ...               // ...but runs first (Link=1)
 }
 
 [Collection("ClientA")]
-public class ClientA(...) : CreateClientChain<ClientA>(...);  // [TestCaseOrderer] inherited
+public class Step_01_Client(...) : CreateClientChain<Step_01_Client>(...);  // orderer inherited
 ```
 
-### Full example — one workflow
+Deliberately declaring `VerifyClient` (Link=2) before `CreateClient` (Link=1) in source order acts as a built-in mechanism check: if the orderer is not inherited, `VerifyClient` runs first, calls `.Get()` on a key that doesn't exist yet, and throws.
 
-**Step 1: output key extensions**
+### Full example — output key extensions and templates
+
+**Output key extensions** (defined once, shared across all flows):
 
 ```csharp
 public static class ChainOutputKeys
@@ -351,7 +356,7 @@ public static class ChainOutputKeys
 }
 ```
 
-**Step 2: templates**
+**Abstract templates** (defined once, inherited by every flow):
 
 ```csharp
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -367,7 +372,6 @@ public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture cha
             Assert.NotEqual(Guid.Empty, output.ClientId<TSelf>().Get()));
 }
 
-// TClient is the upstream collection type — used to read its output key
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public abstract class CreateProjectChain<TSelf, TClient>(CollectionChainContextFixture chain)
 {
@@ -403,60 +407,143 @@ public abstract class ImportDataChain<TSelf, TProject>(CollectionChainContextFix
 }
 ```
 
-**Step 3: workflow A instances**
+**Concrete flow instances** (one file per step, grouped by namespace):
 
 ```csharp
-[CollectionDefinition("FlowA_01_Client")]
-public class ClientADefinition : CollectionChainStartDefinition<ClientA>;
+// namespace MyProject.FlowA
+[CollectionDefinition("ClientA")]
+public class Step_01_ClientDefinition : CollectionChainStartDefinition<Step_01_Client>;
 
-[Collection("FlowA_01_Client")]                 // [TestCaseOrderer] inherited from base
-public class ClientA(CollectionChainContextFixture chain) : CreateClientChain<ClientA>(chain);
+[Collection("ClientA")]  // [TestCaseOrderer] inherited
+public class Step_01_Client(CollectionChainContextFixture chain)
+    : CreateClientChain<Step_01_Client>(chain);
 
+// ---
 
-[CollectionDefinition("FlowA_02_Project")]
-public class ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>;
+[CollectionDefinition("ProjectA")]
+public class Step_02_ProjectDefinition : CollectionChainNextDefinition<Step_01_Client, Step_02_Project>;
 
-[Collection("FlowA_02_Project")]
-public class ProjectA(CollectionChainContextFixture chain) : CreateProjectChain<ProjectA, ClientA>(chain);
+[Collection("ProjectA")]
+public class Step_02_Project(CollectionChainContextFixture chain)
+    : CreateProjectChain<Step_02_Project, Step_01_Client>(chain);
 
+// ---
 
-[CollectionDefinition("FlowA_03_Import")]
-public class ImportADefinition : CollectionChainEndDefinition<ProjectA>;
+[CollectionDefinition("ImportA")]
+public class Step_03_ImportDefinition : CollectionChainNextDefinition<Step_02_Project, Step_03_Import>;
 
-[Collection("FlowA_03_Import")]
-public class ImportA(CollectionChainContextFixture chain) : ImportDataChain<ImportA, ProjectA>(chain);
+[Collection("ImportA")]
+public class Step_03_Import(CollectionChainContextFixture chain)
+    : ImportDataChain<Step_03_Import, Step_02_Project>(chain);
 ```
 
-**Step 4: workflow B — same templates, different instances**
+FlowB is identical in structure — same templates, different namespace (`MyProject.FlowB`), different `[CollectionDefinition]` names (`"ClientB"`, `"ProjectB"`, `"ImportB"`).
+
+### Fan-in: depending on multiple upstream flows
+
+A collection can await more than one upstream by declaring fixtures inline. When there are two or more upstream dependencies the definition base classes (`CollectionChainStartDefinition`, `CollectionChainNextDefinition`) cannot be used — each accepts only one upstream type.
+
+`FlowC.Step_01_Project` fans in from both FlowA's client and FlowB's completed import:
 
 ```csharp
-[CollectionDefinition("FlowB_01_Client")]
-public class ClientBDefinition : CollectionChainStartDefinition<ClientB>;
+using FlowA = MyProject.FlowA;
+using FlowB = MyProject.FlowB;
 
-[Collection("FlowB_01_Client")]
-public class ClientB(CollectionChainContextFixture chain) : CreateClientChain<ClientB>(chain);
+namespace MyProject.FlowC;
 
+[CollectionDefinition("FlowC_Project")]
+public class Step_01_ProjectDefinition :
+    ICollectionFixture<CollectionChainAwait<FlowA.Step_01_Client>>,    // waits for FlowA client
+    ICollectionFixture<CollectionChainAwait<FlowB.Step_03_Import>>,    // waits for FlowB import
+    ICollectionFixture<CollectionChainSignalFixture<Step_01_Project>>, // signals self for downstream
+    ICollectionFixture<CollectionChainContextFixture>;
 
-[CollectionDefinition("FlowB_02_Project")]
-public class ProjectBDefinition : CollectionChainNextDefinition<ClientB, ProjectB>;
+[Collection("FlowC_Project")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public class Step_01_Project(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Create cross-flow project")]
+    public void CreateProject() =>
+        chain.LinkWithCollection(chain.Output.ClientId<FlowA.Step_01_Client>(), output =>
+        {
+            var clientId = output.ClientId<FlowA.Step_01_Client>().Get();
+            var importId = output.ImportId<FlowB.Step_03_Import>().Get();
+            output.ProjectId<Step_01_Project>().Put($"cross-flow|client={clientId}|import={importId}");
+        });
+}
+```
 
-[Collection("FlowB_02_Project")]
-public class ProjectB(CollectionChainContextFixture chain) : CreateProjectChain<ProjectB, ClientB>(chain);
+Namespace aliases (`using FlowA = ...`) resolve the ambiguity when multiple namespaces contain classes with the same name.
 
+### Organizing for the test runner
 
-[CollectionDefinition("FlowB_03_Import")]
-public class ImportBDefinition : CollectionChainEndDefinition<ProjectB>;
+#### Step naming
 
-[Collection("FlowB_03_Import")]
-public class ImportB(CollectionChainContextFixture chain) : ImportDataChain<ImportB, ProjectB>(chain);
+Visual Studio Test Explorer sorts classes alphabetically within a namespace. Prefix class names with a step number to match execution order:
+
+```
+Step_01_Client    ← appears first  (C < I < P without prefix)
+Step_02_Project   ← appears second
+Step_03_Import    ← appears third
+```
+
+Without the prefix, `Import` would sort before `Project` alphabetically — the opposite of execution order.
+
+#### Namespace grouping
+
+Put each flow in its own sub-namespace. VS Test Explorer groups by namespace, so all steps of a flow appear together and the flows are visually separated:
+
+```
+Namespace: MyProject.FlowA
+  Class: Step_01_Client
+  Class: Step_02_Project
+  Class: Step_03_Import
+Namespace: MyProject.FlowB
+  Class: Step_01_Client
+  Class: Step_02_Project
+  Class: Step_03_Import
+Namespace: MyProject.FlowC
+  Class: Step_01_Project
+```
+
+The namespace also provides the uniqueness that makes CRTP work: `FlowA.Step_01_Client` and `FlowB.Step_01_Client` are different types with different `FullName` values, so their output keys never collide even though the class name is identical.
+
+#### Separate test project
+
+Template-based flows are best kept in their own test project so they can be run independently — without pulling in the rest of the test suite's shared static error state.
+
+```
+src/
+  MyProject.Tests/              ← existing tests
+  MyProject.Tests.Templates/    ← flows live here
+    FlowA/
+      Step_01_Client.cs
+      Step_02_Project.cs
+      Step_03_Import.cs
+    FlowB/
+      Step_01_Client.cs
+      Step_02_Project.cs
+      Step_03_Import.cs
+    FlowC/
+      Step_01_Project.cs
+    CreateClientChain.cs
+    CreateProjectChain.cs
+    ImportDataChain.cs
+    ChainOutputKeys.cs
+```
+
+Run just the template flows:
+
+```bash
+dotnet test MyProject.Tests.Templates
 ```
 
 > **Constraints**
 >
-> - **Type name must be unique**: the awaiter coordination key and `TestOutput` key both use `typeof(T).FullName`. If two classes share the same full name (namespace + class), they will collide. This is a compile-time error in C#, so it can't happen accidentally.
-> - **`TAwait` and upstream type param must agree**: `ProjectADefinition : CollectionChainNextDefinition<ClientA, ProjectA>` awaits `ClientA`, and `CreateProjectChain<ProjectA, ClientA>` reads `ClientA`'s output. These two `ClientA` references must match — there is no compiler check across the definition class and test class.
+> - **Type `FullName` must be unique**: the awaiter coordination key and `TestOutput` key both use `typeof(T).FullName`. The namespace is part of `FullName`, so two classes with the same name in different namespaces are always distinct. A true collision (same namespace + same class name) is a compile-time error in C#.
+> - **`TAwait` and upstream type param must agree**: in `CollectionChainNextDefinition<Step_01_Client, Step_02_Project>`, the `Step_01_Client` awaited by the definition must be the same type as the `TClient` in `CreateProjectChain<Step_02_Project, Step_01_Client>`. There is no compiler check across these two declarations — by convention they must match.
 > - **`CollectionChainAwait<T>` vs `CollectionChainAwaitFixture<T>`**: use `CollectionChainAwait<T>` in `ICollectionFixture` declarations (single constructor). Use `CollectionChainAwaitFixture<T>` only when subclassing to provide a custom timeout.
-> - **`TestOutput.Key` uses `FullName`**: the generated key is `"My.Namespace.ClassName_suffix"`. Raw string access like `output["ClientA_suffix"]` breaks — use `TestOutput<T>` accessors which read the key dynamically.
+> - **`TestOutput.Key` uses `FullName`**: the generated key is `"My.Namespace.ClassName_suffix"`. Raw string access like `output["Step_01_Client_ClientId"]` breaks — use `TestOutput<T>` accessors which read the key dynamically.
 
 ---
 
