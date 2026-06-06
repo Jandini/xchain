@@ -16,7 +16,6 @@
 	<PropertyGroup>
 		<Authors>Matt Janda</Authors>
 		<PackageIcon>icon.png</PackageIcon>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageReadmeFile>README.md</PackageReadmeFile>		
 		<PackageId>xchain</PackageId>
 		<AssemblyName>xchain</AssemblyName>
@@ -29,7 +28,6 @@
 
 	<ItemGroup>
 		<None Include="..\..\icon.png" Pack="true" PackagePath="" />
-		<None Include="..\..\LICENSE" Pack="true" PackagePath="" />
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
