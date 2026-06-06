@@ -7,7 +7,7 @@ namespace Xchain;
 /// </summary>
 /// <typeparam name="TCollection">The context type used to generate the output key.</typeparam>
 /// <typeparam name="TOutput">The type of the value to retrieve or store.</typeparam>
-public class TestOutput<TCollection, TOutput>(TestChainOutput output, string suffix = null)
+public class TestOutput<TCollection, TOutput>(TestChainOutput output, string? suffix = null)
 {
     public string Key { get => $"{typeof(TCollection).FullName ?? typeof(TCollection).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"; }
 
@@ -32,7 +32,7 @@ public class TestOutput<TCollection, TOutput>(TestChainOutput output, string suf
     /// <param name="value">When this method returns, contains the value associated with the key,
     /// if found and of the correct type; otherwise, the default value for <typeparamref name="TOutput"/>.</param>
     /// <returns><c>true</c> if the value was found and is of type <typeparamref name="TOutput"/>; otherwise, <c>false</c>.</returns>
-    public bool TryGet(out TOutput value)
+    public bool TryGet([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TOutput value)
     {
         if (output.TryGetValue(Key, out var obj) && obj is TOutput v)
         {
