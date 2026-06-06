@@ -9,7 +9,7 @@ namespace Xchain;
 /// <typeparam name="TOutput">The type of the value to retrieve or store.</typeparam>
 public class TestOutput<TCollection, TOutput>(TestChainOutput output, string suffix = null)
 {
-    public string Key { get => $"{typeof(TCollection).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"; }
+    public string Key { get => $"{typeof(TCollection).FullName ?? typeof(TCollection).Name}{(suffix != null ? $"_{suffix}" : string.Empty)}"; }
 
     /// <summary>
     /// Retrieves a value of type <typeparamref name="TOutput"/> from the output dictionary
@@ -32,7 +32,16 @@ public class TestOutput<TCollection, TOutput>(TestChainOutput output, string suf
     /// <param name="value">When this method returns, contains the value associated with the key,
     /// if found and of the correct type; otherwise, the default value for <typeparamref name="TOutput"/>.</param>
     /// <returns><c>true</c> if the value was found and is of type <typeparamref name="TOutput"/>; otherwise, <c>false</c>.</returns>
-    public bool TryGet(out TOutput value) => output.TryGetValue(Key, out var obj) && obj is TOutput v && (value = v) != null || (value = default) == null;
+    public bool TryGet(out TOutput value)
+    {
+        if (output.TryGetValue(Key, out var obj) && obj is TOutput v)
+        {
+            value = v;
+            return true;
+        }
+        value = default;
+        return false;
+    }
 
     public bool ContainsKey() => output.ContainsKey(Key);
 }

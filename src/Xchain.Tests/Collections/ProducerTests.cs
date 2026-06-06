@@ -3,10 +3,10 @@ using Xchain.Tests;
 
 [CollectionDefinition("FirstCollection")]
 public class FirstCollectionDefinition :
-    ICollectionFixture<ProducerRegisterFixture>,
+    ICollectionFixture<ProducerSignalFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class ProducerRegisterFixture : CollectionChainLinkSetupFixture<ProducerCollection>;
+internal class ProducerSignalFixture : CollectionChainSignalFixture<ProducerCollection>;
 
 [Metadata("Xchain Collection")]
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]

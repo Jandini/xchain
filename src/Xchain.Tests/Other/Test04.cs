@@ -1,48 +1,34 @@
 namespace Xchain.Tests.Other;
 
-
+// "Four" collection demonstrates CollectionChainNextFixture<TAwait, TRegister> —
+// a single fixture that both awaits Test01 AND registers Test04 for any downstream consumers.
+// This replaces the two-class pattern (CollectionChainAwaitFixture + CollectionChainSignalFixture).
 [CollectionDefinition("Four")]
-public class LastCollection : 
-    ICollectionFixture<Test01_CollectionAwaitFixture>, 
+public class FourCollection :
+    ICollectionFixture<CollectionChainNextFixture<Test01, Test04>>,
     ICollectionFixture<CollectionChainContextFixture>;
 
 
 [Collection("Four")]
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
 public class Test04(CollectionChainContextFixture chain)
 {
-    [Fact()]
-    public void LinkedTest1() => chain.Link((output) =>
-    {
-        Thread.Sleep(5000);
-        throw new NotImplementedException();
-    });
+    // Demonstrates: reading cross-collection output works identically whether you used
+    // the old two-fixture pattern or the new CollectionChainNextFixture<TAwait, TRegister>.
+    [ChainFact(Link = 1, Name = "Read Sleep value from Test01 (via CollectionChainNextFixture)")]
+    public void LinkedTest1() =>
+        chain.LinkWithCollection<Test01>("Sleep", output =>
+        {
+            var sleep = output.Get<int>("Sleep");
+            Assert.Equal(2000, sleep);
+        });
 
-
-    [Fact()]
-    public void LinkedTest2() => chain.Link((output) =>
-    {
-        Thread.Sleep(5000);
-        throw new NotImplementedException();
-    });
-
-    [Fact()]
-    public void LinkedTest3() => chain.Link((output) =>
-    {
-        Thread.Sleep(5000);
-    });
-
-
-    [Fact()]
-    public void LinkedTest4() => chain.Link((output) =>
-    {
-        var sleep = output.Get("Sleep");
-        Thread.Sleep(5000);
-        throw new NotImplementedException(sleep);
-    });
-
-    [Fact()]
-    public void LinkedTest5() => chain.Link((output) =>
-    {
-        Thread.Sleep(5000);
-    });
+    // Demonstrates: static Errors from CollectionChainContextFixture are shared across
+    // all collections — Test01's TimeoutException causes this step to skip here too.
+    [ChainFact(Link = 2, Name = "Skip because Test01 timed out (shared static Errors)")]
+    public void LinkedTest2() =>
+        chain.LinkUnless<TimeoutException>(output =>
+        {
+            Assert.Fail("Should have been skipped — Test01's TimeoutException is in the shared error stack.");
+        });
 }

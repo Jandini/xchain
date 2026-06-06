@@ -4,11 +4,11 @@ using Xchain.Tests;
 [CollectionDefinition("SecondCollection")]
 public class SecondCollectionDefinition :
     ICollectionFixture<ProducerAwaitFixture>,
-    ICollectionFixture<ConsumerRegisterFixture>,
+    ICollectionFixture<ConsumerSignalFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class ProducerAwaitFixture : CollectionChainLinkAwaitFixture<ProducerCollection>;
-internal class ConsumerRegisterFixture : CollectionChainLinkSetupFixture<ConsumerCollection>;
+internal class ProducerAwaitFixture : CollectionChainAwaitFixture<ProducerCollection>;
+internal class ConsumerSignalFixture : CollectionChainSignalFixture<ConsumerCollection>;
 
 [Metadata("Xchain Collection")]
 [Collection("SecondCollection")]

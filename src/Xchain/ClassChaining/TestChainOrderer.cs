@@ -33,6 +33,7 @@ public class TestChainOrderer : ITestCaseOrderer
 
                 return new { TestCase = tc, Order = order };
             })
-            .OrderBy(x => x.Order) // Order by the extracted Link value
-            .Select(x => x.TestCase); // Return the original test cases in the new order
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.TestCase.TestMethod.Method.Name) // stable tiebreaker for duplicate Link values
+            .Select(x => x.TestCase);
 }

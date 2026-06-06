@@ -3,15 +3,15 @@ namespace Xchain.Tests.Other;
 
 [CollectionDefinition("First")]
 public class Test01Collection : 
-    ICollectionFixture<Test01_CollectionRegisterFixture>,
+    ICollectionFixture<Test01_CollectionSignalFixture>,
     ICollectionFixture<CollectionChainContextFixture>;
 
-internal class Test01_CollectionRegisterFixture : CollectionChainLinkSetupFixture<Test01>;
-internal class Test01_CollectionAwaitFixture : CollectionChainLinkAwaitFixture<Test01>;
+internal class Test01_CollectionSignalFixture : CollectionChainSignalFixture<Test01>;
+internal class Test01_CollectionAwaitFixture : CollectionChainAwaitFixture<Test01>;
 
 
 // This is example with diagnostic message logging
-// internal class Test01_CollectionAwaitFixture(IMessageSink messageSink) : CollectionChainLinkAwaitFixture<Test01>(messageSink);
+// internal class Test01_CollectionAwaitFixture(IMessageSink messageSink) : CollectionChainAwaitFixture<Test01>(messageSink);
 
 
 [Collection("First")]
@@ -31,7 +31,7 @@ public class Test01(CollectionChainContextFixture chain)
     [ChainFact(Link = 2, Name = "Sleep 2 seconds")]
     public async Task Test2() => await chain.LinkUnlessAsync<NotImplementedException>(async (output, cancellationToken) =>
     {
-        var sleep = output.Get<int>("Sleep") * 10;
+        var sleep = output.Get<int>("Sleep");
         await Task.Delay(sleep, cancellationToken);
     });
 
