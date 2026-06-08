@@ -41,7 +41,7 @@ internal static class CollectionChainLinkAwaiter
     /// <param name="timeout">The maximum time to wait.</param>
     /// <param name="messageSink">Optional diagnostic sink for test framework output.</param>
     /// <exception cref="TimeoutException">Thrown if the timeout expires before the collection signals completion.</exception>
-    public static void WaitForCollection(string name, TimeSpan timeout, IMessageSink messageSink = null)
+    public static void WaitForCollection(string name, TimeSpan timeout, IMessageSink? messageSink = null)
     {
         messageSink?.OnMessage(new DiagnosticMessage($"Waiting for collection '{name}' (timeout: {timeout.TotalSeconds}s)"));
 

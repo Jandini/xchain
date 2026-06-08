@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
+    <Authors>Matt Janda</Authors>
+    <Title>Xchain Generators</Title>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageId>xchain.generators</PackageId>
+    <AssemblyName>xchain.generators</AssemblyName>
+    <RootNamespace>Xchain.Generators</RootNamespace>
+    <Description>Roslyn source generators for Xchain that emit workflow collection fixtures and typed test output key extensions. Distributed inside the xchain NuGet package.</Description>
+    <PackageTags>xchain xunit roslyn source-generator analyzer workflow</PackageTags>
+    <RepositoryUrl>https://github.com/Jandini/xchain</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Jandini/xchain</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\icon.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GitVersion.MsBuild" Version="5.12.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

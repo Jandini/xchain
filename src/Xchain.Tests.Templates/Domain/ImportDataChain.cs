@@ -1,14 +1,16 @@
 namespace Xchain.Tests.Templates;
 
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
-public abstract class ImportDataChain<TSelf, TProject>(CollectionChainContextFixture chain)
+public abstract class ImportDataChain<TSelf, TProject>(CollectionChainContextFixture chain, string importName)
 {
     [ChainFact(Link = 1, Name = "Import data for project")]
     public void ImportData() =>
-        chain.LinkWithCollection(chain.Output.ProjectId<TProject>(), output =>
+        chain.LinkWithCollectionUnless<Exception, TProject>(chain.Output.ProjectId<TProject>().Key, output =>
         {
+
             var projectId = output.ProjectId<TProject>().Get();
             output.ImportId<TSelf>().Put($"import-for-{projectId}");
+            output.ImportName<TSelf>().Put(importName);
         });
 
     [ChainFact(Link = 2, Name = "Verify import completed")]
