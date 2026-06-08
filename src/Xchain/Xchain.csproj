@@ -15,13 +15,14 @@
 
 	<PropertyGroup>
 		<Authors>Matt Janda</Authors>
+		<Title>Xchain</Title>
 		<PackageIcon>icon.png</PackageIcon>
-		<PackageReadmeFile>README.md</PackageReadmeFile>		
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageId>xchain</PackageId>
 		<AssemblyName>xchain</AssemblyName>
 		<RootNamespace>Xchain</RootNamespace>
-		<Description>Xchain provides Xunit fixtures to chain tests, share results, and skip tests on failure.</Description>
-		<PackageTags>xchain xunit</PackageTags>
+		<Description>xUnit fixtures for ordered test chains, cross-collection workflows, and dependent-step skipping. Includes Roslyn source generators for workflow topology and typed output keys.</Description>
+		<PackageTags>xchain xunit testing chain workflow integration-test source-generator roslyn</PackageTags>
 		<RepositoryUrl>https://github.com/Jandini/xchain</RepositoryUrl>
 		<PackageProjectUrl>https://github.com/Jandini/xchain</PackageProjectUrl>
 	</PropertyGroup>
