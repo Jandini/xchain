@@ -27,9 +27,16 @@ Versioning is managed by `GitVersion.MsBuild` (see `GitVersion.yml`). NuGet push
 
 ## Architecture
 
-**Xchain** is a single-assembly xUnit extension (`src/Xchain/`, targets `netstandard2.1`) with a companion test project (`src/Xchain.Tests/`, targets `net8.0`).
+The solution contains four packages:
 
-### Core abstractions
+| Project | Target | Role |
+|---|---|---|
+| `Xchain` | `netstandard2.1` | Core xUnit extension — attributes, orderer, fixtures, extension methods |
+| `Xchain.DependencyInjection` | `net8.0` | Optional DI layer on top of Xchain via `Microsoft.Extensions.Hosting` |
+| `Xchain.Generators` | `netstandard2.0` | Roslyn source generators that eliminate collection-definition boilerplate |
+| `Xchain.Tests` | `net8.0` | Test suite for all packages |
+
+### Core abstractions (Xchain)
 
 | Type | Role |
 |---|---|
@@ -81,3 +88,43 @@ For running the same chain steps against multiple subjects (e.g. two clients), u
 ### Trait metadata
 
 `TraitDiscoverer` is a generic `ITraitDiscoverer` that reflects over any `ITraitAttribute` and emits all its public properties as xUnit traits. Consumers define their own attribute classes (e.g. `MetadataAttribute`, `ChainTagAttribute`) decorated with `[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]`.
+
+### Dependency injection (Xchain.DependencyInjection)
+
+Three DI scopes layered on top of `Microsoft.Extensions.Hosting`:
+
+| Scope | Type | Lifetime |
+|---|---|---|
+| Per-link | child `IServiceScope` created inside each `Link*` call | Disposed after the lambda returns |
+| Per-collection | `ServiceProviderFixture(IMessageSink)` | Alive for one xUnit collection; `IHostedService` started/stopped on Build/Dispose |
+| Per-workflow | `WorkflowServiceProviderFixture<TSelf>` (abstract CRTP base) | Static per closed type; survives fixture disposal across collection boundaries; call `Teardown()` from the last collection |
+
+**`ServiceProviderFixtureExtensions`** — extension target is `IServiceProviderFixture`:
+- `Link(fixture, chain, (sp, output) => ...)` — creates a child scope, executes the lambda, pushes exceptions to `chain.Errors`.
+- `LinkAsync`, `LinkUnless<TEx>`, `LinkUnlessAsync<TEx>` variants mirror the core Xchain API, with optional `TimeSpan timeOut`.
+
+**Primary constructor ergonomics:** `Build(configure)` is idempotent — only the first call builds the provider:
+```csharp
+IServiceProvider Services { get; } = sp.Build((svc, cfg) => { ... });
+```
+
+**Why CRTP for workflow scope:** Static fields on a non-generic base are shared across all subclasses. CRTP (`WorkflowServiceProviderFixture<TSelf>`) gives each concrete type its own static slot. No ref-counting because in a sequential chain A→B→C, xUnit disposes A before creating B — a ref-count would hit zero between every step.
+
+**Logging:**
+- `XchainMessageSinkLoggerProvider` — routes to `IMessageSink` (`DiagnosticMessage`); safe for background services.
+- `LoggingBuilderExtensions`: `AddXchainMessageSink(IMessageSink)`.
+
+**appsettings discovery:** `ASPNETCORE_ENVIRONMENT` ?? `DOTNET_ENVIRONMENT` ?? `"Test"` → loads `appsettings.json` + `appsettings.{env}.json` + env vars.
+
+### Source generators (Xchain.Generators)
+
+**`CollectionChainGenerator`** — finds `CollectionChain` subclasses, parses the `Configure(IChainBuilder)` fluent call chain, and emits `[Collection]` partial parts plus `[CollectionDefinition]` classes per step. Supports `.After<T1, T2>()` for multi-upstream dependencies.
+
+**`ChainOutputSchemaGenerator`** — finds types with `[ChainOutputSchema]`, emits typed `TestOutput<T, TProperty>` extension methods keyed by `nameof(SchemaClass.PropertyName)` — no magic strings.
+
+Usage:
+1. Declare a `[ChainOutputSchema]` POCO with typed properties → generator emits extension methods.
+2. Subclass `CollectionChain`, override `Configure(IChainBuilder b) => b.Start<T>().Then<T>().End<T>()`.
+3. Mark each step class `partial` — generator adds `[Collection]` and emits `[CollectionDefinition]`.
+
+Set `EmitCompilerGeneratedFiles=true` in the project to inspect generated files on disk.

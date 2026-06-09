@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>12</LangVersion>
+		<IsPackable>true</IsPackable>
+		<RootNamespace>Xchain.DependencyInjection</RootNamespace>
+		<AssemblyName>xchain.dependencyinjection</AssemblyName>
+		<PackageId>xchain.dependencyinjection</PackageId>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Authors>Matt Janda</Authors>
+		<Title>Xchain.DependencyInjection</Title>
+		<PackageIcon>icon.png</PackageIcon>
+		<Description>Lightweight DI extension for xUnit using Xchain, supporting per-link, per-collection, and per-workflow service provider scopes with IMessageSink logging.</Description>
+		<PackageTags>xchain xunit testing dependency-injection di service-provider hosted-service</PackageTags>
+		<RepositoryUrl>https://github.com/Jandini/xchain</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/Jandini/xchain</PackageProjectUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\icon.png" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="GitVersion.MsBuild" Version="5.12.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Xchain\Xchain.csproj" />
+	</ItemGroup>
+
+</Project>

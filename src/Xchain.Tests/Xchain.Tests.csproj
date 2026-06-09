@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Xchain\Xchain.csproj" />
+    <ProjectReference Include="..\Xchain.DependencyInjection\Xchain.DependencyInjection.csproj" />
   </ItemGroup>
 
   <ItemGroup>
