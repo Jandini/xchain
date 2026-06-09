@@ -97,7 +97,7 @@ Three DI scopes layered on top of `Microsoft.Extensions.Hosting`:
 |---|---|---|
 | Per-link | child `IServiceScope` created inside each `Link*` call | Disposed after the lambda returns |
 | Per-collection | `ServiceProviderFixture(IMessageSink)` | Alive for one xUnit collection; `IHostedService` started/stopped on Build/Dispose |
-| Per-workflow | `WorkflowServiceProviderFixture<TSelf>` (abstract CRTP base) | Static per closed type; survives fixture disposal across collection boundaries; call `Teardown()` from the last collection |
+| Per-workflow | `WorkflowServiceProviderFixture<TSelf>` (abstract CRTP base) | Static per closed type; survives fixture disposal across collection boundaries; add `ICollectionFixture<WorkflowTeardownFixture<TSelf>>` to the last collection for auto-teardown |
 
 **`ServiceProviderFixtureExtensions`** — extension target is `IServiceProviderFixture`:
 - `Link(fixture, chain, (sp, output) => ...)` — creates a child scope, executes the lambda, pushes exceptions to `chain.Errors`.

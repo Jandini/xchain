@@ -15,6 +15,7 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
         WorkflowA.Teardown();
         WorkflowB.Teardown();
         WorkflowC.Teardown();
+        WorkflowD.Teardown();
         UninitializedWorkflow.Teardown();
     }
 
@@ -67,6 +68,20 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
     }
 
     [Fact]
+    public void WorkflowTeardownFixture_Dispose_StopsHostedServiceAndDisposesProvider()
+    {
+        var sink = new SpyMessageSink();
+        var spy = new FakeHostedService();
+        _ = new WorkflowD(sink, spy);
+
+        var teardown = new WorkflowTeardownFixture<WorkflowD>(sink);
+        teardown.Dispose();
+
+        Assert.True(spy.Stopped);
+        Assert.Contains(sink.Messages, m => m.Contains("stopped FakeHostedService"));
+    }
+
+    [Fact]
     public void Services_BeforeInitialize_Throws()
     {
         var fixture = new UninitializedWorkflow(new SpyMessageSink());
@@ -97,6 +112,23 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
         private readonly FakeHostedService? _hosted;
 
         public WorkflowC(IMessageSink sink, FakeHostedService? hosted = null) : base(sink)
+        {
+            _hosted = hosted;
+            Initialize();
+        }
+
+        protected override void ConfigureServices(IServiceCollection services, IConfiguration config)
+        {
+            if (_hosted is not null)
+                services.AddSingleton<IHostedService>(_hosted);
+        }
+    }
+
+    private sealed class WorkflowD : WorkflowServiceProviderFixture<WorkflowD>
+    {
+        private readonly FakeHostedService? _hosted;
+
+        public WorkflowD(IMessageSink sink, FakeHostedService? hosted = null) : base(sink)
         {
             _hosted = hosted;
             Initialize();

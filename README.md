@@ -376,7 +376,7 @@ public sealed class MyWorkflowFixture : WorkflowServiceProviderFixture<MyWorkflo
 }
 ```
 
-Call `MyWorkflowFixture.Teardown(sink)` from the last collection in the chain to gracefully stop any hosted services.
+Add `ICollectionFixture<WorkflowTeardownFixture<MyWorkflowFixture>>` to the **last** collection's definition — xUnit disposes it automatically when that collection ends, which stops any hosted services and disposes the provider.
 
 ---
 
@@ -599,7 +599,7 @@ public class Step_01_ProjectDefinition :
 
 ```
 FlowA:  Step_01_Client ──► Step_02_Project ──► Step_03_Import ──┐
-              │                                                  │
+              │                                                 │
 FlowC:        └──────────────── Step_01_Project ◄───────────────┘
                                      ▲
 FlowB:  Step_01_Client ──► Step_02_Project ──► Step_03_Import ──┘
