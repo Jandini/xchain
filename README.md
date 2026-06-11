@@ -340,6 +340,8 @@ public class LoginFlow(
 
 `sp.Link(chain, (provider, output) => ...)` creates a child DI scope for each step. The `Link`, `LinkAsync`, `LinkUnless<TEx>`, and `LinkUnlessAsync<TEx>` variants mirror the core Xchain API.
 
+`ServiceProviderFixture` implements both `IDisposable` and `IAsyncDisposable`. xUnit prefers `DisposeAsync` when available, so services that implement `IAsyncDisposable` are properly awaited during teardown — no extra setup required.
+
 ### Configuration
 
 `Build()` automatically loads:
