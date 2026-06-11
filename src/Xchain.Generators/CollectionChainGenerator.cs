@@ -44,7 +44,11 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         if (calls.Count == 0)
             return null;
 
-        return new ChainInfo(symbol.Name, calls);
+        var hintName = symbol.ToDisplayString()
+            .Replace('.', '_')
+            .Replace('<', '_').Replace('>', '_')
+            .Replace(',', '_').Replace('+', '_');
+        return new ChainInfo(hintName, calls);
     }
 
     private static bool IsCollectionChain(INamedTypeSymbol symbol)
