@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>RS2008</NoWarn>
     <IsPackable>false</IsPackable>
     <Authors>Matt Janda</Authors>
     <Title>Xchain Generators</Title>
