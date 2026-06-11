@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xchain.DependencyInjection.Logging;
 using Xunit.Abstractions;
 
@@ -48,7 +47,7 @@ public abstract class WorkflowServiceProviderFixture<TSelf>(IMessageSink message
             services.AddLogging(l => l.AddXchainMessageSink(messageSink));
             ConfigureServices(services, config);
             _provider = services.BuildServiceProvider();
-            XchainDiHelper.StartHostedServices(_provider, messageSink);
+            _provider.StartHostedServices(messageSink);
         }
     }
 
@@ -62,7 +61,7 @@ public abstract class WorkflowServiceProviderFixture<TSelf>(IMessageSink message
         {
             if (_provider is null) return;
             if (sink is not null)
-                XchainDiHelper.StopHostedServices(_provider, sink);
+                _provider.StopHostedServices(sink);
             _provider.Dispose();
             _provider = null;
         }

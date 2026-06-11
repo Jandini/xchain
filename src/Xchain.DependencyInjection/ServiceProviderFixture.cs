@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace Xchain.DependencyInjection;
 
-public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceProviderFixture, IDisposable
+public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceProviderFixture, IAsyncDisposable, IDisposable
 {
     private ServiceProvider? _provider;
     private readonly object _lock = new();
@@ -29,15 +29,22 @@ public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceP
             services.AddLogging(l => l.AddXchainMessageSink(messageSink));
             configure?.Invoke(services, config);
             _provider = services.BuildServiceProvider();
-            XchainDiHelper.StartHostedServices(_provider, messageSink);
+            _provider.StartHostedServices(messageSink);
             return _provider;
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_provider is null) return;
+        await _provider.StopHostedServicesAsync(messageSink);
+        await _provider.DisposeAsync();
     }
 
     public void Dispose()
     {
         if (_provider is null) return;
-        XchainDiHelper.StopHostedServices(_provider, messageSink);
+        _provider.StopHostedServices(messageSink);
         _provider.Dispose();
     }
 
