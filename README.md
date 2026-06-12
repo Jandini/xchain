@@ -5,33 +5,15 @@
 
 **Xchain** extends xUnit with ordered, dependent test steps. Steps share state through a typed dictionary, and if a step fails, downstream steps automatically skip instead of failing with a misleading error.
 
+---
+
+## Get Started
+
 ```
 dotnet add package xchain
 ```
 
----
-
-## Single Chains
-
-A **single chain** is a sequence of ordered steps inside one test class. Each step can pass data to the next, and a failure in an early step causes later steps to skip — not fail with a secondary error.
-
-### Setup
-
-```csharp
-[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
-public class LoginFlow(TestChainContextFixture chain) : IClassFixture<TestChainContextFixture>
-{
-    // steps go here
-}
-```
-
-Two things are required:
-- `IClassFixture<TestChainContextFixture>` — creates the shared fixture for this class
-- `[TestCaseOrderer]` — tells xUnit to sort test methods by their `Link` number
-
-### Writing Steps
-
-Use `[ChainFact(Link = N)]` to define execution order. Call `chain.Link(output => ...)` to run a step and share data between steps:
+A chain is a test class where each method has a `Link` number that determines execution order. Steps share an `output` dictionary to pass data forward.
 
 ```csharp
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -56,11 +38,17 @@ public class LoginFlow(TestChainContextFixture chain) : IClassFixture<TestChainC
 }
 ```
 
+Two things are required:
+- `IClassFixture<TestChainContextFixture>` - creates the shared fixture that holds the output dictionary and error history
+- `[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]` - tells xUnit to sort test methods by their `Link` number
+
 `output` is a `ConcurrentDictionary<string, object>` shared across all steps in the class.
 
-### Skipping on Failure
+---
 
-Use `LinkUnless<TException>` to skip a step when a specific exception type has already been captured by a prior step:
+## Skipping on Failure
+
+When a step fails, later steps that depend on it should skip - not fail with a secondary error. Use `LinkUnless<TException>` to skip a step when a specific exception type has already been captured by a prior step:
 
 ```csharp
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -75,23 +63,25 @@ public class ApiFlow(TestChainContextFixture chain) : IClassFixture<TestChainCon
 
     [ChainFact(Link = 2, Name = "Submit Order")]
     public void Step2() =>
-        chain.LinkUnless<HttpRequestException>(output => // skipped if Step1 threw
+        chain.LinkUnless<HttpRequestException>(output =>
         {
             output["OrderId"] = output.Get<ApiClient>("Client").SubmitOrder();
         });
 
     [ChainFact(Link = 3, Name = "Verify Order")]
     public void Step3() =>
-        chain.LinkUnless<HttpRequestException>(output => // skipped if Step1 or Step2 threw
+        chain.LinkUnless<HttpRequestException>(output =>
         {
             Assert.Equal("Confirmed", ApiClient.CheckStatus(output.Get<Guid>("OrderId")));
         });
 }
 ```
 
-If `Step1` throws `HttpRequestException`, steps 2 and 3 are **skipped** (⚠️) not failed (❌). Only the root cause is reported.
+If `Step1` throws `HttpRequestException`, steps 2 and 3 are **skipped** (⚠️) not failed (❌). The root cause surfaces once; downstream steps don't produce misleading errors on top of it.
 
-### Async Steps and Timeouts
+---
+
+## Async Steps and Timeouts
 
 All `Link` methods have async variants. Pass an optional `TimeSpan` to enforce a timeout:
 
@@ -113,7 +103,9 @@ public async Task Step2() =>
 
 If the timeout elapses, `TimeoutException` is pushed to the error stack. Downstream steps guarding on it will skip.
 
-### Step Reference
+---
+
+## Step Reference
 
 | Method | Sync/Async | Skips when exception already in errors |
 |---|---|---|
@@ -121,11 +113,11 @@ If the timeout elapses, `TimeoutException` is pushed to the error stack. Downstr
 | `LinkAsync(...)` | async | no |
 | `LinkUnless<TException>(...)` | sync | yes |
 | `LinkUnlessAsync<TException>(...)` | async | yes |
-| `SkipIf<TException>(...)` | — | explicit skip, no logic runs |
+| `SkipIf<TException>(...)` | - | explicit skip, no logic runs |
 
 ---
 
-## Display Names and Custom Fact Attributes
+## Display Names
 
 `[ChainFact]` and `[ChainTheory]` format their display name as:
 
@@ -147,11 +139,11 @@ Pad = 0 (default):  #1, #2, #10  → sorts as: #1, #10, #2  ✗
 Pad = 2:            #01, #02, #10 → sorts as: #01, #02, #10 ✓
 ```
 
-### Creating a Custom Fact Attribute
+---
 
-Writing `Flow = "..."` and `Pad = 2` on every test method is tedious and error-prone. Subclass `ChainFactAttribute` to set them once and use the subclass on every method.
+## Custom Fact Attributes
 
-For **non-generic** classes, a nested private subclass works well:
+Writing `Flow = "..."` and `Pad = 2` on every test method is tedious. Subclass `ChainFactAttribute` to set them once:
 
 ```csharp
 [TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
@@ -173,21 +165,335 @@ public class OrderFlow(TestChainContextFixture chain) : IClassFixture<TestChainC
 }
 ```
 
-> **Generic classes only:** C# does not allow a type nested inside a generic class to be used as an attribute (CS0416 — the nested type's full name includes the open type parameter). For abstract template classes, define the attribute outside the generic class — see the Templates section below.
+> **Generic classes only:** C# does not allow a type nested inside a generic class to be used as an attribute (CS0416). For abstract template classes, define the attribute outside the generic class - see the Reusable Chain Templates section.
 
 The same technique works for `ChainTheoryAttribute`.
 
 ---
 
+## Typed Output Keys
+
+String keys (`output["Token"]`) work fine for small chains. As chains grow, typed keys prevent collisions, catch renames at compile time, and let multiple flows share a dictionary without stepping on each other.
+
+### Defining Typed Keys
+
+Define extension methods on `TestChainOutput` using `nameof` so the key stays in sync with the method name:
+
+```csharp
+public static class OutputKeys
+{
+    public static TestOutput<T, Guid>   ClientId<T>(this TestChainOutput o)  => new(o, nameof(ClientId));
+    public static TestOutput<T, string> ProjectId<T>(this TestChainOutput o) => new(o, nameof(ProjectId));
+    public static TestOutput<T, string> ImportId<T>(this TestChainOutput o)  => new(o, nameof(ImportId));
+}
+```
+
+The key for `output.ClientId<FlowA.Step_01_Client>()` is generated as `"MyProject.FlowA.Step_01_Client_ClientId"` - the full type name plus the method name - unique by construction.
+
+### Usage
+
+```csharp
+// Store a value
+chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
+
+// Retrieve a value
+var id = output.ClientId<TSelf>().Get();
+
+// Guard: step skips if key is absent (upstream failed or was skipped)
+chain.LinkWithCollection(chain.Output.ClientId<TClient>(), output =>
+{
+    var clientId = output.ClientId<TClient>().Get();
+    // ...
+});
+```
+
+`TestOutput<TCollection, TOutput>` also provides:
+- `TryGet(out TOutput value)` - safe retrieval without throwing
+- `ContainsKey()` - check presence without retrieving
+
+---
+
+## Reusable Chain Templates
+
+When the same sequence of steps needs to run against multiple subjects - two clients, two environments, two API versions - use abstract base classes so the logic is written once and inherited.
+
+### The CRTP Pattern - Output Key Isolation
+
+Pass the concrete subclass as a generic parameter (`TSelf`). The base class uses this to namespace output keys per subclass, so two flows running the same template never overwrite each other's data.
+
+Because `CreateClientChain<TSelf>` is generic, the attribute must be defined outside the class:
+
+```csharp
+internal class CreateClientStepAttribute : ChainFactAttribute
+{
+    public CreateClientStepAttribute() { Flow = "Create Client"; Pad = 2; }
+}
+
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
+{
+    [CreateClientStep(Link = 1, Name = "Create client")]
+    public void CreateClient() =>
+        chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
+
+    [CreateClientStep(Link = 2, Name = "Verify client")]
+    public void VerifyClient() =>
+        chain.LinkUnless<Exception>(output =>
+            Assert.NotEqual(Guid.Empty, output.ClientId<TSelf>().Get()));
+}
+```
+
+Concrete step classes inherit the tests, the orderer, and the custom fact attribute:
+
+```csharp
+// FlowA/Step_01_Client.cs
+[Collection("ClientA")]
+public class Step_01_Client(CollectionChainContextFixture chain)
+    : CreateClientChain<Step_01_Client>(chain);   // TSelf = FlowA.Step_01_Client
+
+// FlowB/Step_01_Client.cs
+[Collection("ClientB")]
+public class Step_01_Client(CollectionChainContextFixture chain)
+    : CreateClientChain<Step_01_Client>(chain);   // TSelf = FlowB.Step_01_Client
+```
+
+Their output keys are derived from the full type name, so they never collide:
+
+```
+FlowA.Step_01_Client → "MyProject.FlowA.Step_01_Client_ClientId"
+FlowB.Step_01_Client → "MyProject.FlowB.Step_01_Client_ClientId"
+```
+
+### `[TestCaseOrderer]` Inheritance
+
+Place `[TestCaseOrderer]` on the **abstract base class** - xUnit inherits it to all subclasses automatically.
+
+### Recommended Project Layout
+
+Keep template flows in their own project so they run independently, without sharing error state with the rest of the suite:
+
+```
+src/
+  MyProject.Tests/
+  MyProject.Tests.Templates/
+    Domain/
+      CreateClientChain.cs
+      CreateProjectChain.cs
+    FlowA/
+      Step_01_Client.cs
+      Step_02_Project.cs
+    FlowB/
+      Step_01_Client.cs
+      Step_02_Project.cs
+```
+
+Prefix step class names with a number so Test Explorer sorts them in execution order (`Step_01_`, `Step_02_`). Without the prefix, alphabetical order disagrees with execution order.
+
+---
+
+## Logging
+
+Xchain ships a companion package that wires `Microsoft.Extensions.Logging` into xUnit's output system:
+
+```
+dotnet add package xchain.dependencyinjection
+```
+
+Service logs route to `IMessageSink` — visible in xUnit's diagnostic output and safe for background services.
+
+### Per-collection DI
+
+Add `ServiceProviderFixture` alongside `TestChainContextFixture`. Call `sp.Build(configure)` in the primary constructor — it builds the provider once and caches it:
+
+```csharp
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public class LoginFlow(
+    TestChainContextFixture chain,
+    ServiceProviderFixture sp) : IClassFixture<TestChainContextFixture>, IClassFixture<ServiceProviderFixture>
+{
+    private IServiceProvider Services { get; } = sp.Build(
+        (services, config) =>
+        {
+            services.AddSingleton<ILoginService, LoginService>();
+        });
+
+    [ChainFact(Link = 1, Name = "Authenticate")]
+    public void Step1() =>
+        sp.Link(chain, (provider, o) =>
+        {
+            var svc = provider.GetRequiredService<ILoginService>();
+            var logger = provider.GetRequiredService<ILogger<LoginFlow>>();
+            o["Token"] = svc.Login("user", "pass");
+            logger.LogInformation("Authenticated successfully");
+        });
+
+    [ChainFact(Link = 2, Name = "Fetch Profile")]
+    public void Step2() =>
+        sp.Link(chain, (provider, o) =>
+        {
+            var token = o.Get<string>("Token");
+            var profile = provider.GetRequiredService<IApiClient>().GetProfile(token);
+            Assert.NotNull(profile);
+        });
+}
+```
+
+`sp.Link(chain, (provider, output) => ...)` creates a child DI scope for each step. The `Link`, `LinkAsync`, `LinkUnless<TEx>`, and `LinkUnlessAsync<TEx>` variants mirror the core Xchain API.
+
+`ServiceProviderFixture` implements both `IDisposable` and `IAsyncDisposable`. xUnit prefers `DisposeAsync` when available, so services that implement `IAsyncDisposable` are properly awaited during teardown — no extra setup required.
+
+### Configuration
+
+`Build()` automatically loads:
+1. `appsettings.json`
+2. `appsettings.{env}.json` (env = `ASPNETCORE_ENVIRONMENT` ?? `DOTNET_ENVIRONMENT` ?? `"Test"`)
+3. Environment variables
+
+Access configuration in the `configure` callback:
+
+```csharp
+private IServiceProvider Services { get; } = sp.Build(
+    output,
+    (services, config) =>
+    {
+        services.Configure<ApiSettings>(config.GetSection("Api"));
+    });
+```
+
+> When passing only `configure` without `output`, use the named parameter: `sp.Build(configure: (svc, cfg) => ...)`.
+
+### Per-workflow DI
+
+For chains that span multiple xUnit collections (see Workflow Chains), use `WorkflowServiceProviderFixture<TSelf>` - a CRTP abstract base that holds a static provider per concrete subclass, so the provider survives fixture disposal between collections:
+
+```csharp
+public sealed class MyWorkflowFixture : WorkflowServiceProviderFixture<MyWorkflowFixture>
+{
+    public MyWorkflowFixture(IMessageSink sink) : base(sink) => Initialize();
+
+    protected override void ConfigureServices(IServiceCollection services, IConfiguration config)
+    {
+        services.AddSingleton<IMyService, MyService>();
+    }
+}
+```
+
+Add `ICollectionFixture<WorkflowTeardownFixture<MyWorkflowFixture>>` to the **last** collection's definition — xUnit disposes it automatically when that collection ends, which stops any hosted services and disposes the provider.
+
+---
+
+## Traits
+
+Tag tests for `dotnet test --filter` with a custom `ITraitAttribute`. Xchain reflects over its public properties and exposes each as an xUnit trait:
+
+```csharp
+[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public class TagAttribute(string category) : Attribute, ITraitAttribute
+{
+    public string Category { get; } = category;
+}
+```
+
+```bash
+dotnet test --filter "Category=Smoke"
+```
+
+---
+
+## Source Generator
+
+Xchain ships a Roslyn source generator that eliminates the `[CollectionDefinition]` and fixture boilerplate from workflow chains. Instead of writing definition classes and fixture subclasses by hand, you declare the chain topology once and mark step classes `partial` - the generator wires everything at build time.
+
+### Declaring a Workflow
+
+```csharp
+public class MyWorkflow : WorkflowChain
+{
+    protected override void Configure(IWorkflowBuilder b) => b
+        .Start<Step_01_Create>()
+        .Then<Step_02_Use>()
+        .End<Step_03_Verify>();
+}
+```
+
+| Method | Effect |
+|---|---|
+| `Start<T>()` | First collection - signals itself on completion |
+| `Then<T>()` | Middle collection - awaits predecessor, signals itself |
+| `End<T>()` | Last collection - awaits predecessor |
+| `After<T1>()` / `After<T1, T2>()` | Cross-workflow upstream dependencies |
+
+### Step Classes
+
+Mark each step class `partial` and drop `[Collection]` / `[CollectionDefinition]` - the generator adds them:
+
+```csharp
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public partial class Step_01_Create(CollectionChainContextFixture chain)
+{
+    [ChainFact(Link = 1, Name = "Create resource")]
+    public void Create() =>
+        chain.Link(output => output["ResourceId"] = CreateResource());
+}
+```
+
+If you forget `partial`, the compiler raises `CS0260` pointing directly to the problem class.
+
+### What the Generator Produces
+
+For each step it emits a `[Collection]` partial and a `[CollectionDefinition]` class using the type's `FullName` as the collection name:
+
+```csharp
+// auto-generated
+[Collection("MyNamespace.Step_01_Create")]
+public partial class Step_01_Create { }
+
+[CollectionDefinition("MyNamespace.Step_01_Create")]
+public class Step_01_CreateDefinition : CollectionChainStartDefinition<Step_01_Create> { }
+```
+
+Set `EmitCompilerGeneratedFiles=true` in your project to inspect generated files on disk.
+
+### Output Schema Generator
+
+Instead of writing `TestOutput<T>` extension methods by hand, annotate an interface with `[ChainOutputSchema]`. The generator emits one typed extension method per property:
+
+```csharp
+[ChainOutputSchema]
+public interface IMyOutputs
+{
+    Guid   ClientId  { get; }
+    string ProjectId { get; }
+    string ImportId  { get; }
+}
+// Generator emits: output.ClientId<T>(), output.ProjectId<T>(), output.ImportId<T>()
+```
+
+Renaming a property is a compile error at every call site - no magic strings, no runtime key drift.
+
+### Fan-In with the Generator
+
+```csharp
+public class WorkflowC : WorkflowChain
+{
+    protected override void Configure(IWorkflowBuilder b) => b
+        .After<FlowA.Step_03_Import>()
+        .Start<FlowC.Step_01_Project>();
+}
+```
+
+---
+
 ## Workflow Chains
 
-A **workflow chain** coordinates multiple xUnit test collections that execute in a controlled order and share state. Each collection waits for its upstream to complete before starting.
+### From the Kitchen
 
-```
-Collection A  ──►  Collection B  ──►  Collection C
-```
+Think of a workflow chain like a restaurant kitchen. The prep station (collection A) chops ingredients and passes them down the line. The cooking station (collection B) can't start until prep is done - it would have nothing to work with. The plating station (collection C) can't start until cooking is done. Each station is its own xUnit test collection, running its own ordered steps. If the prep station fails, the cooking and plating stations skip entirely - they don't produce a pile of misleading failures on top of the original problem.
 
-Use `CollectionChainContextFixture` instead of `TestChainContextFixture` — its `Output` and `Errors` are static, visible across all collections.
+In Xchain, each "station" is an xUnit test collection. Collections run in parallel by default; a workflow chain coordinates them so collection B waits for collection A before its first fixture is even created. State flows between stations through the shared `CollectionChainContextFixture` - its `Output` and `Errors` are static, visible across all collections in the chain.
+
+Use `CollectionChainContextFixture` instead of `TestChainContextFixture` in workflow chains.
 
 ### Producer / Consumer
 
@@ -259,9 +565,9 @@ internal class MyFixture : CollectionChainNextFixture<ProducerCollection, Middle
 
 | Base class | Position | Provides |
 |---|---|---|
-| `CollectionChainStartDefinition<T>` | First — signals only | Signal + Context |
-| `CollectionChainNextDefinition<TAwait, T>` | Middle — awaits + signals | NextFixture + Context |
-| `CollectionChainEndDefinition<TAwait>` | Last — awaits only | Await + Context |
+| `CollectionChainStartDefinition<T>` | First - signals only | Signal + Context |
+| `CollectionChainNextDefinition<TAwait, T>` | Middle - awaits + signals | NextFixture + Context |
+| `CollectionChainEndDefinition<TAwait>` | Last - awaits only | Await + Context |
 
 These reduce each definition to a single line:
 
@@ -291,134 +597,13 @@ public class Step_01_ProjectDefinition :
 
 > Use `CollectionChainAwait<T>` in `ICollectionFixture<>` declarations (single constructor). Use `CollectionChainAwaitFixture<T>` only when subclassing to provide a custom timeout.
 
----
-
-## Typed Output Keys
-
-String keys (`output["Token"]`) are fine for single chains. For workflow chains where multiple collections share a dictionary, typed keys prevent collisions and catch renames at compile time.
-
-### Defining Typed Keys
-
-Define extension methods on `TestChainOutput` using `nameof` so the key stays in sync with the method name:
-
-```csharp
-public static class OutputKeys
-{
-    public static TestOutput<T, Guid>   ClientId<T>(this TestChainOutput o)  => new(o, nameof(ClientId));
-    public static TestOutput<T, string> ProjectId<T>(this TestChainOutput o) => new(o, nameof(ProjectId));
-    public static TestOutput<T, string> ImportId<T>(this TestChainOutput o)  => new(o, nameof(ImportId));
-}
-```
-
-The key for `output.ClientId<FlowA.Step_01_Client>()` is generated as `"MyProject.FlowA.Step_01_Client_ClientId"` — the full type name plus the method name — unique by construction.
-
-### Usage
-
-```csharp
-// Store a value
-chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
-
-// Retrieve a value
-var id = output.ClientId<TSelf>().Get();
-
-// Guard: step skips if key is absent (upstream failed or was skipped)
-chain.LinkWithCollection(chain.Output.ClientId<TClient>(), output =>
-{
-    var clientId = output.ClientId<TClient>().Get();
-    // ...
-});
-```
-
-`TestOutput<TCollection, TOutput>` also provides:
-- `TryGet(out TOutput value)` — safe retrieval without throwing
-- `ContainsKey()` — check presence without retrieving
-
----
-
-## Traits
-
-Tag tests for `dotnet test --filter` with a custom `ITraitAttribute`. Xchain reflects over its public properties and exposes each as an xUnit trait:
-
-```csharp
-[TraitDiscoverer("Xchain.TraitDiscoverer", "Xchain")]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-public class TagAttribute(string category) : Attribute, ITraitAttribute
-{
-    public string Category { get; } = category;
-}
-```
-
-```bash
-dotnet test --filter "Category=Smoke"
-```
-
----
-
-## Reusable Chain Templates
-
-When the same sequence of steps needs to run against multiple subjects — two clients, two environments, two API versions — duplicate test classes are fragile. Use abstract base classes so the logic is written once and inherited by each concrete flow.
-
-### The CRTP Pattern — Output Key Isolation
-
-Pass the concrete subclass as a generic parameter (`TSelf`). The base class uses this to namespace output keys per subclass, so two flows running the same template never overwrite each other's data:
-
-Because `CreateClientChain<TSelf>` is generic, the attribute must be defined outside the class. An `internal class` in the same namespace (or the same file) works cleanly:
-
-```csharp
-// Defined outside the generic class — can be in the same file or a separate Domain file
-internal class CreateClientStepAttribute : ChainFactAttribute
-{
-    public CreateClientStepAttribute() { Flow = "Create Client"; Pad = 2; }
-}
-
-[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
-public abstract class CreateClientChain<TSelf>(CollectionChainContextFixture chain)
-{
-    [CreateClientStep(Link = 1, Name = "Create client")]
-    public void CreateClient() =>
-        chain.Link(output => output.ClientId<TSelf>().Put(Guid.NewGuid()));
-
-    [CreateClientStep(Link = 2, Name = "Verify client")]
-    public void VerifyClient() =>
-        chain.LinkUnless<Exception>(output =>
-            Assert.NotEqual(Guid.Empty, output.ClientId<TSelf>().Get()));
-}
-```
-
-Concrete step classes inherit the tests, the orderer, and the custom fact attribute:
-
-```csharp
-// FlowA/Step_01_Client.cs
-[Collection("ClientA")]
-public class Step_01_Client(CollectionChainContextFixture chain)
-    : CreateClientChain<Step_01_Client>(chain);   // TSelf = FlowA.Step_01_Client
-
-// FlowB/Step_01_Client.cs
-[Collection("ClientB")]
-public class Step_01_Client(CollectionChainContextFixture chain)
-    : CreateClientChain<Step_01_Client>(chain);   // TSelf = FlowB.Step_01_Client
-```
-
-Their output keys are derived from the full type name, so they never collide:
-
-```
-FlowA.Step_01_Client → "MyProject.FlowA.Step_01_Client_ClientId"
-FlowB.Step_01_Client → "MyProject.FlowB.Step_01_Client_ClientId"
-```
-
-### `[TestCaseOrderer]` Inheritance
-
-Place `[TestCaseOrderer]` on the **abstract base class** — xUnit inherits it to all subclasses automatically. Concrete classes need nothing extra.
-
-A useful correctness check: declare `VerifyClient` (Link = 2) before `CreateClient` (Link = 1) in source order. If the orderer is not inherited, `VerifyClient` runs first, calls `.Get()` on a key that doesn't exist yet, and throws — immediately flagging the misconfiguration.
-
 ### Full Example: Three Templates, Two Flows, One Fan-In
 
 ```
 FlowA:  Step_01_Client ──► Step_02_Project ──► Step_03_Import ──┐
-              │                                                   │
-FlowC:        └─────────────── Step_01_Project ◄─────────────────┘
-                                    ▲
+              │                                                 │
+FlowC:        └──────────────── Step_01_Project ◄───────────────┘
+                                     ▲
 FlowB:  Step_01_Client ──► Step_02_Project ──► Step_03_Import ──┘
 ```
 
@@ -446,31 +631,9 @@ public abstract class CreateProjectChain<TSelf, TClient>(CollectionChainContextF
         chain.LinkUnless<Exception>(output =>
             Assert.NotEmpty(output.ProjectId<TSelf>().Get()));
 }
-
-internal class ImportDataStepAttribute : ChainFactAttribute
-{
-    public ImportDataStepAttribute() { Flow = "Import Data"; Pad = 2; }
-}
-
-[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
-public abstract class ImportDataChain<TSelf, TProject>(CollectionChainContextFixture chain)
-{
-    [ImportDataStep(Link = 1, Name = "Import data")]
-    public void ImportData() =>
-        chain.LinkWithCollection(chain.Output.ProjectId<TProject>(), output =>
-        {
-            var projectId = output.ProjectId<TProject>().Get();
-            output.ImportId<TSelf>().Put($"import-for-{projectId}");
-        });
-
-    [ImportDataStep(Link = 2, Name = "Verify import")]
-    public void VerifyImport() =>
-        chain.LinkUnless<Exception>(output =>
-            Assert.NotEmpty(output.ImportId<TSelf>().Get()));
-}
 ```
 
-**Concrete steps (one file each, FlowA shown — FlowB is identical, different namespace):**
+**Concrete steps (FlowA shown - FlowB is identical, different namespace):**
 
 ```csharp
 // FlowA/Step_01_Client.cs
@@ -488,17 +651,9 @@ public class Step_02_ProjectDefinition : CollectionChainNextDefinition<Step_01_C
 [Collection("ProjectA")]
 public class Step_02_Project(CollectionChainContextFixture chain)
     : CreateProjectChain<Step_02_Project, Step_01_Client>(chain);
-
-// FlowA/Step_03_Import.cs
-[CollectionDefinition("ImportA")]
-public class Step_03_ImportDefinition : CollectionChainNextDefinition<Step_02_Project, Step_03_Import>;
-
-[Collection("ImportA")]
-public class Step_03_Import(CollectionChainContextFixture chain)
-    : ImportDataChain<Step_03_Import, Step_02_Project>(chain);
 ```
 
-**Fan-in — FlowC depends on outputs from both FlowA and FlowB:**
+**Fan-in - FlowC depends on outputs from both FlowA and FlowB:**
 
 ```csharp
 namespace MyProject.FlowC;
@@ -530,114 +685,6 @@ public class Step_01_Project(CollectionChainContextFixture chain)
 }
 ```
 
-### Recommended Project Layout
-
-Keep template flows in their own project so they run independently, without sharing error state with the rest of the suite:
-
-```
-src/
-  MyProject.Tests/
-  MyProject.Tests.Templates/
-    Domain/
-      CreateClientChain.cs
-      CreateProjectChain.cs
-      ImportDataChain.cs
-    FlowA/
-      Step_01_Client.cs
-      Step_02_Project.cs
-      Step_03_Import.cs
-    FlowB/
-      Step_01_Client.cs
-      Step_02_Project.cs
-      Step_03_Import.cs
-    FlowC/
-      Step_01_Project.cs
-```
-
-Prefix step class names with a number so Test Explorer sorts them in execution order (`Step_01_`, `Step_02_`, `Step_03_`). Without the prefix, alphabetical order disagrees with execution order.
-
----
-
-## Advanced: Source Generator
-
-Xchain ships a Roslyn source generator that eliminates the `[CollectionDefinition]` and fixture boilerplate from workflow chains. Instead of writing definition classes and fixture subclasses by hand, you declare the chain topology once and mark step classes `partial` — the generator wires everything at build time.
-
-### Declaring a Workflow
-
-```csharp
-public class MyWorkflow : WorkflowChain
-{
-    protected override void Configure(IWorkflowBuilder b) => b
-        .Start<Step_01_Create>()
-        .Then<Step_02_Use>()
-        .End<Step_03_Verify>();
-}
-```
-
-| Method | Effect |
-|---|---|
-| `Start<T>()` | First collection — signals itself on completion |
-| `Then<T>()` | Middle collection — awaits predecessor, signals itself |
-| `End<T>()` | Last collection — awaits predecessor |
-| `After<T1>()` / `After<T1, T2>()` | Cross-workflow upstream dependencies |
-
-### Step Classes
-
-Mark each step class `partial` and drop `[Collection]` / `[CollectionDefinition]` — the generator adds them:
-
-```csharp
-[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
-public partial class Step_01_Create(CollectionChainContextFixture chain)
-{
-    [ChainFact(Link = 1, Name = "Create resource")]
-    public void Create() =>
-        chain.Link(output => output["ResourceId"] = CreateResource());
-}
-```
-
-If you forget `partial`, the compiler raises `CS0260` pointing directly to the problem class.
-
-### What the Generator Produces
-
-For each step it emits a `[Collection]` partial and a `[CollectionDefinition]` class using the type's `FullName` as the collection name:
-
-```csharp
-// auto-generated
-[Collection("MyNamespace.Step_01_Create")]
-public partial class Step_01_Create { }
-
-[CollectionDefinition("MyNamespace.Step_01_Create")]
-public class Step_01_CreateDefinition : CollectionChainStartDefinition<Step_01_Create> { }
-```
-
-### Output Schema Generator
-
-Instead of writing `TestOutput<T>` extension methods by hand, annotate an interface with `[ChainOutputSchema]`. The generator emits one typed extension method per property:
-
-```csharp
-[ChainOutputSchema]
-public interface IMyOutputs
-{
-    Guid   ClientId  { get; }
-    string ProjectId { get; }
-    string ImportId  { get; }
-}
-// Generator emits: output.ClientId<T>(), output.ProjectId<T>(), output.ImportId<T>()
-```
-
-Renaming a property is a compile error at every call site — no magic strings, no runtime key drift.
-
-### Fan-In with the Generator
-
-```csharp
-public class WorkflowC : WorkflowChain
-{
-    protected override void Configure(IWorkflowBuilder b) => b
-        .After<FlowA.Step_01_Client, FlowB.Step_03_Import>()
-        .Start<FlowC.Step_01_Project>();
-}
-```
-
 ---
 
 ## Breaking Changes
@@ -656,4 +703,4 @@ These types required `[assembly: CollectionBehavior(DisableTestParallelization =
 
 - Powered by [Xunit.SkippableFact](https://github.com/AArnott/Xunit.SkippableFact)
 - Created from [JandaBox](https://github.com/Jandini/JandaBox)
-- Icon by [Freepik – Flaticon](https://www.flaticon.com/free-icon/link_1325130?term=chain&page=5&position=11&origin=search&related_id=1325130)
+- Icon by [Freepik - Flaticon](https://www.flaticon.com/free-icon/link_1325130?term=chain&page=5&position=11&origin=search&related_id=1325130)
