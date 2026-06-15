@@ -34,19 +34,29 @@ internal static class CollectionChainLinkAwaiter
     public static void Unregister(string name) => GetOrCreate(name).Set();
 
     /// <summary>
-    /// Blocks until the specified collection completes or the timeout is reached.
+    /// Blocks until the specified collection completes. Pass a timeout to bound the wait;
+    /// omit it (or pass <see langword="null"/>) for an infinite wait.
     /// Safe to call before <see cref="Register"/> — both share the same event instance.
     /// </summary>
     /// <param name="name">The name of the collection to wait for.</param>
-    /// <param name="timeout">The maximum time to wait.</param>
+    /// <param name="timeout">Maximum time to wait, or <see langword="null"/> for no limit.</param>
     /// <param name="messageSink">Optional diagnostic sink for test framework output.</param>
-    /// <exception cref="TimeoutException">Thrown if the timeout expires before the collection signals completion.</exception>
-    public static void WaitForCollection(string name, TimeSpan timeout, IMessageSink? messageSink = null)
+    /// <exception cref="TimeoutException">Thrown if <paramref name="timeout"/> expires before the collection signals completion.</exception>
+    public static void WaitForCollection(string name, TimeSpan? timeout = null, IMessageSink? messageSink = null)
     {
-        messageSink?.OnMessage(new DiagnosticMessage($"Waiting for collection '{name}' (timeout: {timeout.TotalSeconds}s)"));
+        messageSink?.OnMessage(new DiagnosticMessage(timeout.HasValue
+            ? $"Waiting for collection '{name}' (timeout: {timeout.Value.TotalSeconds}s)"
+            : $"Waiting for collection '{name}' (no timeout)"));
 
-        if (!GetOrCreate(name).Wait(timeout))
-            throw new TimeoutException($"Timed out waiting for collection '{name}' to complete.");
+        if (timeout.HasValue)
+        {
+            if (!GetOrCreate(name).Wait(timeout.Value))
+                throw new TimeoutException($"Timed out waiting for collection '{name}' to complete.");
+        }
+        else
+        {
+            GetOrCreate(name).Wait();
+        }
     }
 }
 

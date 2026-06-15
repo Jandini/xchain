@@ -21,17 +21,22 @@ namespace Xchain;
 public class CollectionChainNextFixture<TAwait, TRegister> : IDisposable
 {
     /// <summary>
-    /// Waits for <typeparamref name="TAwait"/> to complete (default 360-second timeout)
-    /// and registers <typeparamref name="TRegister"/> for downstream consumers.
+    /// Waits indefinitely for <typeparamref name="TAwait"/> to complete and registers
+    /// <typeparamref name="TRegister"/> for downstream consumers.
     /// </summary>
-    public CollectionChainNextFixture() : this(TimeSpan.FromSeconds(360)) { }
+    public CollectionChainNextFixture() : this((TimeSpan?)null) { }
 
     /// <summary>
     /// Waits for <typeparamref name="TAwait"/> to complete with a custom timeout
     /// and registers <typeparamref name="TRegister"/> for downstream consumers.
     /// Subclass with a public parameterless constructor to use a custom timeout.
     /// </summary>
-    protected CollectionChainNextFixture(TimeSpan timeout)
+    protected CollectionChainNextFixture(TimeSpan timeout) : this((TimeSpan?)timeout) { }
+
+    /// <summary>
+    /// Core constructor. Pass <see langword="null"/> for an infinite wait.
+    /// </summary>
+    protected CollectionChainNextFixture(TimeSpan? timeout)
     {
         CollectionChainLinkAwaiter.WaitForCollection(typeof(TAwait).FullName ?? typeof(TAwait).Name, timeout);
         CollectionChainLinkAwaiter.Register(typeof(TRegister).FullName ?? typeof(TRegister).Name);

@@ -52,9 +52,9 @@ The solution contains four packages and one test-only project:
 | `TestChainContextFixture` | Per-class fixture (`IClassFixture<T>`). Holds `Output` and `Errors`. |
 | `CollectionChainContextFixture` | Cross-collection fixture. Both `Output` and `Errors` are **static** fields shared across all collections — unrelated collections that share this fixture will cross-contaminate error state; use separate fixture types to isolate them. |
 | `WorkflowChain` | Abstract base class (file: `CollectionChain.cs`). Subclass and override `Configure(IWorkflowBuilder)` for the source generator to read. |
-| `IWorkflowBuilder` | Fluent API (file: `IChainBuilder.cs`) for declaring topology: `Start<T>()`, `Then<T>()`, `End<T>()`, `After<T1>()`, `After<T1,T2>()`. None of these run at runtime — they exist only for the generator to parse. |
+| `IWorkflowBuilder` | Fluent API (file: `IChainBuilder.cs`) for declaring topology: `Start<T>()`, `Then<T>(timeout?)`, `End<T>(timeout?)`, `After<T1>()`, `After<T1,T2>()`. None of these run at runtime — they exist only for the generator to parse. `Then` and `End` accept an optional `TimeSpan?` timeout (default: infinite). |
 | `CollectionChainSignalFixture<T>` | Registers collection T with the internal awaiter on construction; unregisters (signals done) on disposal. |
-| `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion (default 360-second timeout). Subclass this only when you need a custom timeout. |
+| `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion (infinite wait by default). Subclass with a parameterless ctor calling `base(TimeSpan)` to impose a limit. |
 | `CollectionChainAwait<T>` | Use this directly in `ICollectionFixture<>` declarations (single constructor). Do not subclass — use `CollectionChainAwaitFixture<T>` for that. |
 | `CollectionChainNextFixture<TAwait, T>` | Combined: awaits TAwait then signals T. Replaces the separate signal + await two-fixture pattern. |
 | `CollectionChainStartDefinition<T>` | Abstract `[CollectionDefinition]` base for the first collection in a chain. Inherits Signal + Context fixtures. |
@@ -77,7 +77,7 @@ All public API lives in two static extension classes:
 
 ### Cross-collection orchestration
 
-Use `CollectionChainSignalFixture<T>` and `CollectionChainAwaitFixture<T>` as assembly fixtures to synchronize two collections. The await fixture blocks its collection's fixture construction until the target collection signals completion (default 360-second timeout).
+Use `CollectionChainSignalFixture<T>` and `CollectionChainAwaitFixture<T>` as assembly fixtures to synchronize two collections. The await fixture blocks its collection's fixture construction until the target collection signals completion. The default wait is **infinite** — if the upstream collection never signals (e.g. it crashed or was excluded via `--filter`), the run will hang. Pass a `TimeSpan` to `Then<T>(timeout)` / `End<T>(timeout)` in the fluent builder, or subclass `CollectionChainAwaitFixture<T>` with a custom timeout, to bound failure.
 
 ```csharp
 // In the depending collection's definition:

@@ -17,9 +17,11 @@ public interface IWorkflowBuilder
     IWorkflowBuilder Start<T>();
 
     /// <summary>Middle collection. Awaits the previous step and signals itself.</summary>
-    IWorkflowBuilder Then<T>();
+    /// <param name="timeout">Maximum time to wait for the previous step. <see langword="null"/> (default) waits indefinitely.</param>
+    IWorkflowBuilder Then<T>(TimeSpan? timeout = null);
 
     /// <summary>Last collection in the chain. Awaits the previous step and signals itself,
     /// allowing downstream cross-flow collections to await this flow's completion.</summary>
-    IWorkflowBuilder End<T>();
+    /// <param name="timeout">Maximum time to wait for the previous step. <see langword="null"/> (default) waits indefinitely.</param>
+    IWorkflowBuilder End<T>(TimeSpan? timeout = null);
 }
