@@ -57,7 +57,7 @@ public static class ServiceProviderFixtureExtensions
     {
         try
         {
-            using var scope = fixture.Services.CreateScope();
+            await using var scope = fixture.Services.CreateAsyncScope();
             using var cts = timeOut != default
                 ? new CancellationTokenSource(timeOut)
                 : new CancellationTokenSource();
@@ -87,7 +87,7 @@ public static class ServiceProviderFixtureExtensions
     {
         try
         {
-            using var scope = fixture.Services.CreateScope();
+            await using var scope = fixture.Services.CreateAsyncScope();
             using var cts = timeOut != default
                 ? new CancellationTokenSource(timeOut)
                 : new CancellationTokenSource();
@@ -163,7 +163,7 @@ public static class ServiceProviderFixtureExtensions
         {
             var existing = chain.Errors.FirstOrDefault(ex => ex.InnerException is TException);
             Skip.If(existing is not null, existing?.Message);
-            using var scope = fixture.Services.CreateScope();
+            await using var scope = fixture.Services.CreateAsyncScope();
             using var cts = timeOut != default
                 ? new CancellationTokenSource(timeOut)
                 : new CancellationTokenSource();
@@ -195,7 +195,7 @@ public static class ServiceProviderFixtureExtensions
         {
             var existing = chain.Errors.FirstOrDefault(ex => ex.InnerException is TException);
             Skip.If(existing is not null, existing?.Message);
-            using var scope = fixture.Services.CreateScope();
+            await using var scope = fixture.Services.CreateAsyncScope();
             using var cts = timeOut != default
                 ? new CancellationTokenSource(timeOut)
                 : new CancellationTokenSource();

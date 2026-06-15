@@ -7,10 +7,10 @@ namespace Xchain.Tests.DependencyInjection;
 public sealed class PerLinkScopeTest
 {
     [Fact]
-    public void Link_ScopedService_NewInstancePerCall()
+    public async Task Link_ScopedService_NewInstancePerCall()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build(configure: (services, _) => services.AddScoped<Counter>());
 
         var chain = new TestChainContextFixture();
@@ -27,10 +27,10 @@ public sealed class PerLinkScopeTest
     }
 
     [Fact]
-    public void Link_SingletonService_SameInstanceAcrossCalls()
+    public async Task Link_SingletonService_SameInstanceAcrossCalls()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build(configure: (services, _) => services.AddSingleton<Counter>());
 
         var chain = new TestChainContextFixture();
@@ -45,10 +45,10 @@ public sealed class PerLinkScopeTest
     }
 
     [Fact]
-    public void Link_Exception_PushedToChainErrors()
+    public async Task Link_Exception_PushedToChainErrors()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var chain = new TestChainContextFixture();
@@ -66,7 +66,7 @@ public sealed class PerLinkScopeTest
     public async Task LinkAsync_ScopedService_NewInstancePerCall()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build(configure: (services, _) => services.AddScoped<Counter>());
 
         var chain = new TestChainContextFixture();
@@ -94,7 +94,7 @@ public sealed class PerLinkScopeTest
     public async Task LinkAsync_Timeout_ThrowsTimeoutException()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var chain = new TestChainContextFixture();
@@ -107,10 +107,10 @@ public sealed class PerLinkScopeTest
     }
 
     [Fact]
-    public void LinkUnless_SkipsWhenErrorPresent()
+    public async Task LinkUnless_SkipsWhenErrorPresent()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var chain = new TestChainContextFixture();
@@ -127,10 +127,10 @@ public sealed class PerLinkScopeTest
     }
 
     [Fact]
-    public void Link_Output_SharedViaChain()
+    public async Task Link_Output_SharedViaChain()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var chain = new TestChainContextFixture();
