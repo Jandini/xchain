@@ -420,9 +420,23 @@ public class MyWorkflow : WorkflowChain
 | Method | Effect |
 |---|---|
 | `Start<T>()` | First collection - signals itself on completion |
-| `Then<T>()` | Middle collection - awaits predecessor, signals itself |
-| `End<T>()` | Last collection - awaits predecessor |
+| `Then<T>(timeout?)` | Middle collection - awaits predecessor, signals itself |
+| `End<T>(timeout?)` | Last collection - awaits predecessor |
 | `After<T1>()` / `After<T1, T2>()` | Cross-workflow upstream dependencies |
+
+`Then` and `End` wait indefinitely by default. Pass a `TimeSpan` to bound the wait:
+
+```csharp
+public class MyWorkflow : WorkflowChain
+{
+    protected override void Configure(IWorkflowBuilder b) => b
+        .Start<Step_01_Create>()
+        .Then<Step_02_Use>(TimeSpan.FromMinutes(30))
+        .End<Step_03_Verify>(TimeSpan.FromMinutes(30));
+}
+```
+
+If the upstream never signals (e.g. it crashed or was excluded with `--filter`), the run hangs indefinitely unless a timeout is set.
 
 ### Step Classes
 
@@ -552,14 +566,16 @@ public class MiddleCollectionDefinition :
     ICollectionFixture<CollectionChainContextFixture>;
 ```
 
-To customize the timeout (default: 6 minutes):
+The wait is infinite by default. Subclass to impose a limit when writing fixture classes by hand:
 
 ```csharp
 internal class MyFixture : CollectionChainNextFixture<ProducerCollection, MiddleCollection>
 {
-    public MyFixture() : base(TimeSpan.FromMinutes(2)) { }
+    public MyFixture() : base(TimeSpan.FromMinutes(30)) { }
 }
 ```
+
+When using the source generator, pass the timeout directly to `Then<T>()` or `End<T>()` instead — no subclass needed.
 
 ### Definition Base Classes
 
@@ -595,7 +611,7 @@ public class Step_01_ProjectDefinition :
     ICollectionFixture<CollectionChainContextFixture>;
 ```
 
-> Use `CollectionChainAwait<T>` in `ICollectionFixture<>` declarations (single constructor). Use `CollectionChainAwaitFixture<T>` only when subclassing to provide a custom timeout.
+> Use `CollectionChainAwait<T>` in `ICollectionFixture<>` declarations (single constructor, waits indefinitely). Use `CollectionChainAwaitFixture<T>` only when subclassing to impose a timeout.
 
 ### Full Example: Three Templates, Two Flows, One Fan-In
 
