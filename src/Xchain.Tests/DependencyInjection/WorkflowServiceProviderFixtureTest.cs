@@ -7,16 +7,19 @@ using Xunit.Abstractions;
 
 namespace Xchain.Tests.DependencyInjection;
 
-public sealed class WorkflowServiceProviderFixtureTest : IDisposable
+public sealed class WorkflowServiceProviderFixtureTest : IAsyncLifetime
 {
-    public void Dispose()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
         // Reset static slots after each test to prevent cross-test contamination.
-        WorkflowA.Teardown();
-        WorkflowB.Teardown();
-        WorkflowC.Teardown();
-        WorkflowD.Teardown();
-        UninitializedWorkflow.Teardown();
+        await WorkflowA.TeardownAsync();
+        await WorkflowB.TeardownAsync();
+        await WorkflowC.TeardownAsync();
+        await WorkflowD.TeardownAsync();
+        await WorkflowE.TeardownAsync();
+        await UninitializedWorkflow.TeardownAsync();
     }
 
     [Fact]
@@ -41,41 +44,41 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
     }
 
     [Fact]
-    public void Teardown_DisposesProvider_AllowsRebuild()
+    public async Task TeardownAsync_DisposesProvider_AllowsRebuild()
     {
         var sink = new SpyMessageSink();
         var first = new WorkflowA(sink);
         var providerBefore = first.Services;
 
-        WorkflowA.Teardown(sink);
+        await WorkflowA.TeardownAsync(sink);
 
         var second = new WorkflowA(sink);
         Assert.NotSame(providerBefore, second.Services);
     }
 
     [Fact]
-    public void Teardown_StopsHostedService()
+    public async Task TeardownAsync_StopsHostedService()
     {
         var sink = new SpyMessageSink();
         var spy = new FakeHostedService();
-        var fixture = new WorkflowC(sink, spy);
+        _ = new WorkflowC(sink, spy);
 
         Assert.True(spy.Started);
-        WorkflowC.Teardown(sink);
+        await WorkflowC.TeardownAsync(sink);
 
         Assert.True(spy.Stopped);
         Assert.Contains(sink.Messages, m => m.Contains("stopped FakeHostedService"));
     }
 
     [Fact]
-    public void WorkflowTeardownFixture_Dispose_StopsHostedServiceAndDisposesProvider()
+    public async Task WorkflowTeardownFixture_DisposeAsync_StopsHostedServiceAndDisposesProvider()
     {
         var sink = new SpyMessageSink();
         var spy = new FakeHostedService();
         _ = new WorkflowD(sink, spy);
 
         var teardown = new WorkflowTeardownFixture<WorkflowD>(sink);
-        teardown.Dispose();
+        await teardown.DisposeAsync();
 
         Assert.True(spy.Stopped);
         Assert.Contains(sink.Messages, m => m.Contains("stopped FakeHostedService"));
@@ -87,6 +90,32 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
         var fixture = new UninitializedWorkflow(new SpyMessageSink());
         var ex = Assert.Throws<InvalidOperationException>(() => { _ = fixture.Services; });
         Assert.Contains("Initialize()", ex.Message);
+    }
+
+    [Fact]
+    public async Task TeardownAsync_WithAsyncOnlyDisposableService_DisposesService()
+    {
+        var sink = new SpyMessageSink();
+        var workflow = new WorkflowE(sink);
+
+        // Resolve so the container creates and tracks the instance for disposal.
+        var asyncDisposable = workflow.Services.GetRequiredService<PublicAsyncOnlyDisposable>();
+
+        await WorkflowE.TeardownAsync(sink);
+
+        Assert.True(asyncDisposable.Disposed);
+    }
+
+    [Fact]
+    public async Task TeardownAsync_IsIdempotent()
+    {
+        var sink = new SpyMessageSink();
+        _ = new WorkflowA(sink);
+
+        await WorkflowA.TeardownAsync(sink);
+        var ex = await Record.ExceptionAsync(() => WorkflowA.TeardownAsync(sink));
+
+        Assert.Null(ex);
     }
 
     // ---- Inner fixture types — each uses a unique type param to isolate static slots ----
@@ -141,6 +170,14 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
         }
     }
 
+    private sealed class WorkflowE : WorkflowServiceProviderFixture<WorkflowE>
+    {
+        public WorkflowE(IMessageSink sink) : base(sink) => Initialize();
+
+        protected override void ConfigureServices(IServiceCollection services, IConfiguration config)
+            => services.AddSingleton<PublicAsyncOnlyDisposable>();
+    }
+
     private sealed class UninitializedWorkflow : WorkflowServiceProviderFixture<UninitializedWorkflow>
     {
         public UninitializedWorkflow(IMessageSink sink) : base(sink) { }
@@ -154,4 +191,5 @@ public sealed class WorkflowServiceProviderFixtureTest : IDisposable
         public Task StartAsync(CancellationToken ct) { Started = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct) { Stopped = true; return Task.CompletedTask; }
     }
+
 }

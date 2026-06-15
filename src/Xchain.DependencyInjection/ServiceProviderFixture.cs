@@ -1,14 +1,18 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xchain.DependencyInjection.Logging;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace Xchain.DependencyInjection;
 
-public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceProviderFixture, IAsyncDisposable, IDisposable
+public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceProviderFixture, IAsyncLifetime, IAsyncDisposable
 {
     private ServiceProvider? _provider;
     private readonly object _lock = new();
+
+    Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
+    Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();
 
     public IServiceProvider Services => _provider
         ?? throw new InvalidOperationException("Call Build() before accessing Services.");
@@ -39,13 +43,7 @@ public sealed class ServiceProviderFixture(IMessageSink messageSink) : IServiceP
         if (_provider is null) return;
         await _provider.StopHostedServicesAsync(messageSink);
         await _provider.DisposeAsync();
-    }
-
-    public void Dispose()
-    {
-        if (_provider is null) return;
-        _provider.StopHostedServices(messageSink);
-        _provider.Dispose();
+        _provider = null;
     }
 
     internal static IConfiguration BuildConfiguration()

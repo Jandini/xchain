@@ -8,10 +8,10 @@ namespace Xchain.Tests.DependencyInjection;
 public sealed class ServiceProviderFixtureTest
 {
     [Fact]
-    public void Build_IsIdempotent_ReturnsSameProvider()
+    public async Task Build_IsIdempotent_ReturnsSameProvider()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
 
         var first = fixture.Build();
         var second = fixture.Build();
@@ -20,19 +20,19 @@ public sealed class ServiceProviderFixtureTest
     }
 
     [Fact]
-    public void Services_BeforeBuild_Throws()
+    public async Task Services_BeforeBuild_Throws()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
 
         Assert.Throws<InvalidOperationException>(() => fixture.Services);
     }
 
     [Fact]
-    public void Services_AfterBuild_ReturnsSameProvider()
+    public async Task Services_AfterBuild_ReturnsSameProvider()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
 
         var built = fixture.Build();
 
@@ -40,10 +40,10 @@ public sealed class ServiceProviderFixtureTest
     }
 
     [Fact]
-    public void Build_Configure_RegistersServices()
+    public async Task Build_Configure_RegistersServices()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
 
         fixture.Build(configure: (services, _) => services.AddSingleton<string>("hello"));
 
@@ -52,10 +52,10 @@ public sealed class ServiceProviderFixtureTest
     }
 
     [Fact]
-    public void Build_RegistersConfiguration_AsService()
+    public async Task Build_RegistersConfiguration_AsService()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var config = fixture.Services.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
@@ -63,7 +63,7 @@ public sealed class ServiceProviderFixtureTest
     }
 
     [Fact]
-    public void Dispose_StopsHostedService()
+    public async Task DisposeAsync_StopsHostedService()
     {
         var sink = new SpyMessageSink();
         var spy = new FakeHostedService();
@@ -72,23 +72,64 @@ public sealed class ServiceProviderFixtureTest
         fixture.Build(configure: (services, _) => services.AddSingleton<IHostedService>(spy));
 
         Assert.True(spy.Started);
-        fixture.Dispose();
+        await fixture.DisposeAsync();
 
         Assert.True(spy.Stopped);
         Assert.Contains(sink.Messages, m => m.Contains("stopped FakeHostedService"));
     }
 
     [Fact]
-    public void Build_StartsHostedService()
+    public async Task Build_StartsHostedService()
     {
         var sink = new SpyMessageSink();
         var spy = new FakeHostedService();
 
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build(configure: (services, _) => services.AddSingleton<IHostedService>(spy));
 
         Assert.True(spy.Started);
         Assert.Contains(sink.Messages, m => m.Contains("started FakeHostedService"));
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WithAsyncOnlyDisposableService_DisposesService()
+    {
+        // The container must call DisposeAsync() on IAsyncDisposable-only singleton services.
+        // Use a public top-level service type so the DI engine can construct it via reflection.
+        var sink = new SpyMessageSink();
+        var fixture = new ServiceProviderFixture(sink);
+        fixture.Build(configure: (services, _) => services.AddSingleton<PublicAsyncOnlyDisposable>());
+        var asyncDisposable = fixture.Services.GetRequiredService<PublicAsyncOnlyDisposable>();
+
+        await fixture.DisposeAsync();
+
+        Assert.True(asyncDisposable.Disposed);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WithAsyncOnlyDisposableService_DoesNotThrow()
+    {
+        var sink = new SpyMessageSink();
+        var fixture = new ServiceProviderFixture(sink);
+        fixture.Build(configure: (services, _) => services.AddSingleton<PublicAsyncOnlyDisposable>());
+        _ = fixture.Services.GetRequiredService<PublicAsyncOnlyDisposable>();
+
+        var ex = await Record.ExceptionAsync(() => fixture.DisposeAsync().AsTask());
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_IsIdempotent()
+    {
+        var sink = new SpyMessageSink();
+        var fixture = new ServiceProviderFixture(sink);
+        fixture.Build();
+
+        await fixture.DisposeAsync();
+        var ex = await Record.ExceptionAsync(() => fixture.DisposeAsync().AsTask());
+
+        Assert.Null(ex);
     }
 
     private sealed class FakeHostedService : IHostedService
@@ -108,4 +149,5 @@ public sealed class ServiceProviderFixtureTest
             return Task.CompletedTask;
         }
     }
+
 }

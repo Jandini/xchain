@@ -55,15 +55,17 @@ public abstract class WorkflowServiceProviderFixture<TSelf>(IMessageSink message
     /// Stops hosted services and disposes the static provider.
     /// Call from the last collection in the workflow chain for graceful shutdown.
     /// </summary>
-    public static void Teardown(IMessageSink? sink = null)
+    public static async Task TeardownAsync(IMessageSink? sink = null)
     {
+        ServiceProvider? toDispose;
         lock (_lock)
         {
             if (_provider is null) return;
-            if (sink is not null)
-                _provider.StopHostedServices(sink);
-            _provider.Dispose();
+            toDispose = _provider;
             _provider = null;
         }
+        if (sink is not null)
+            await toDispose.StopHostedServicesAsync(sink);
+        await toDispose.DisposeAsync();
     }
 }

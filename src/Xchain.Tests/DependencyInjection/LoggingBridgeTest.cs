@@ -9,10 +9,10 @@ namespace Xchain.Tests.DependencyInjection;
 public sealed class LoggingBridgeTest
 {
     [Fact]
-    public void ILogger_RoutesToMessageSink()
+    public async Task ILogger_RoutesToMessageSink()
     {
         var sink = new SpyMessageSink();
-        using var fixture = new ServiceProviderFixture(sink);
+        await using var fixture = new ServiceProviderFixture(sink);
         fixture.Build();
 
         var logger = fixture.Services.GetRequiredService<ILogger<LoggingBridgeTest>>();

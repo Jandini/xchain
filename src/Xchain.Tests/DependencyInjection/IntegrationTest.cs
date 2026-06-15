@@ -85,9 +85,10 @@ public sealed class IntegrationTest(
 /// simulating the across-collection-boundary property (collection A's fixture disposed, collection B's
 /// fixture created — both resolve to the same static provider built exactly once).
 /// </summary>
-public sealed class WorkflowScopeAcrossBoundaryTest : IDisposable
+public sealed class WorkflowScopeAcrossBoundaryTest : IAsyncLifetime
 {
-    public void Dispose() => BoundaryWorkflow.Teardown();
+    public Task InitializeAsync() => Task.CompletedTask;
+    public Task DisposeAsync() => BoundaryWorkflow.TeardownAsync();
 
     [Fact]
     public void StaticProvider_SurvivesFixtureDisposal_SameInstance()
