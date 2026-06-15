@@ -1,9 +1,9 @@
 name: Build
 
 env:
-    DOTNET_CLI_TELEMETRY_OPTOUT: 1    
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-    DOTNET_NOLOGO: 1    
+    DOTNET_NOLOGO: 1
     NUGET_AUTH_TOKEN: ${{ secrets.PACKAGE_REGISTRY_TOKEN }}
 
 on:
@@ -12,31 +12,30 @@ on:
   pull_request:
     branches: 'main'
 
-defaults:
-  run:
-    working-directory: .
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v2
-      with: 
-        fetch-depth: 0    
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
         source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
 
+    - name: Install GitVersion
+      run: dotnet tool install --global GitVersion.Tool --version 5.12.*
+
     - name: Restore
-      run: dotnet restore
-      
+      run: dotnet restore Xchain.slnx
+
     - name: Pack
-      run: dotnet pack --no-restore -c:Release -o nuget
-    
+      run: dotnet pack Xchain.slnx --no-restore -c:Release -o nuget
+
     - name: Push
       # Create packages from every branch except pull requests
       if: github.event_name == 'push' && contains(github.event.head_commit.message, 'prerelease')

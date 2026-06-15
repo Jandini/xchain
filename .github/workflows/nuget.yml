@@ -10,29 +10,29 @@ env:
     DOTNET_NOLOGO: true
     NUGET_AUTH_TOKEN: ${{ secrets.PACKAGE_REGISTRY_TOKEN }}
 
-defaults:
-  run:
-    working-directory: .
-
 jobs:
   nuget:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-      with: 
+    - uses: actions/checkout@v4
+      with:
         fetch-depth: 0
+
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1      
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
         source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
 
+    - name: Install GitVersion
+      run: dotnet tool install --global GitVersion.Tool --version 5.12.*
+
     - name: Restore
-      run: dotnet restore            
+      run: dotnet restore Xchain.slnx
 
     - name: Pack
-      run: dotnet pack --no-restore -c:Release -o nuget
- 
+      run: dotnet pack Xchain.slnx --no-restore -c:Release -o nuget
+
     - name: Push
       run: dotnet nuget push "nuget/*.nupkg" -k ${{ secrets.NUGET_ORG_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate

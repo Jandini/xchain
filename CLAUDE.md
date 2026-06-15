@@ -8,19 +8,19 @@ All commands run from the repository root (solution is `Xchain.slnx` at root).
 
 ```bash
 # Build
-dotnet build
+dotnet build Xchain.slnx
 
 # Run all tests
-dotnet test
+dotnet test Xchain.slnx
 
 # Run a single test class
-dotnet test --filter "FullyQualifiedName~SimpleChainTest"
+dotnet test Xchain.slnx --filter "FullyQualifiedName~SimpleChainTest"
 
 # Run tests by trait (e.g. custom MetadataAttribute category)
-dotnet test --filter "Category=SmokeTest"
+dotnet test Xchain.slnx --filter "Category=SmokeTest"
 
 # Pack the NuGet package (Release)
-dotnet pack -c Release -o nuget
+dotnet pack Xchain.slnx -c Release -o nuget
 ```
 
 Versioning is managed by `GitVersion.MsBuild` (`GitVersion.yml`, mode `ContinuousDeployment`, main branch = `master` regex `main`). NuGet pushes are triggered in CI only when the commit message contains `prerelease` (build.yml) or on tag push (nuget.yml).
