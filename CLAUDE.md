@@ -4,55 +4,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-All commands run from the `src/` directory.
+All commands run from the repository root (solution is `Xchain.slnx` at root).
 
 ```bash
 # Build
-dotnet build
+dotnet build Xchain.slnx
 
 # Run all tests
-dotnet test
+dotnet test Xchain.slnx
 
 # Run a single test class
-dotnet test --filter "FullyQualifiedName~SimpleChainTest"
+dotnet test Xchain.slnx --filter "FullyQualifiedName~SimpleChainTest"
 
 # Run tests by trait (e.g. custom MetadataAttribute category)
-dotnet test --filter "Category=SmokeTest"
+dotnet test Xchain.slnx --filter "Category=SmokeTest"
 
 # Pack the NuGet package (Release)
-dotnet pack -c Release -o nuget
+dotnet pack Xchain.slnx -c Release -o nuget
 ```
 
-Versioning is managed by `GitVersion.MsBuild` (see `GitVersion.yml`). NuGet pushes are triggered in CI only when the commit message contains `prerelease`.
+Versioning is managed by `GitVersion.MsBuild` (`GitVersion.yml`, mode `ContinuousDeployment`, main branch = `master` regex `main`). NuGet pushes are triggered in CI only when the commit message contains `prerelease` (build.yml) or on tag push (nuget.yml).
 
 ## Architecture
 
-The solution contains four packages:
+The solution contains four packages and one test-only project:
 
 | Project | Target | Role |
 |---|---|---|
 | `Xchain` | `netstandard2.1` | Core xUnit extension — attributes, orderer, fixtures, extension methods |
 | `Xchain.DependencyInjection` | `net8.0` | Optional DI layer on top of Xchain via `Microsoft.Extensions.Hosting` |
-| `Xchain.Generators` | `netstandard2.0` | Roslyn source generators that eliminate collection-definition boilerplate |
+| `Xchain.Generators` | `netstandard2.0` | Roslyn source generators — **`IsPackable=false`**, bundled into `xchain` NuGet |
 | `Xchain.Tests` | `net8.0` | Test suite for all packages |
+| `Xchain.Tests.Templates` | `net8.0` | Integration tests for the source generators; has `EmitCompilerGeneratedFiles=true` to inspect generated files on disk |
+
+### Generator bundling
+
+`Xchain.Generators` is not its own NuGet package. `Xchain.csproj` references it with `OutputItemType="Analyzer" ReferenceOutputAssembly="false"` and then an `IncludeGeneratorInPackage` MSBuild target embeds the generator DLL at `analyzers/dotnet/cs/` inside the `xchain` package. Consumers get the generators automatically when they install `xchain` — no second package reference needed.
 
 ### Core abstractions (Xchain)
 
 | Type | Role |
 |---|---|
-| `ChainFactAttribute` / `ChainTheoryAttribute` | Drop-in replacements for `[Fact]`/`[Theory]`. Add `Link` (execution order), `Flow` (grouping label), and `Name` (display name). Display name format: `#<Link> \| <Flow> \| <Name>`. |
+| `ChainFactAttribute` / `ChainTheoryAttribute` | Drop-in replacements for `[Fact]`/`[Theory]`. Add `Link` (execution order), `Flow` (grouping label), `Name` (display name), and `Pad` (zero-pad width for the link number). Display name format: `#<Link> \| <Flow> \| <Name>`. Set `Pad = 2` when you have 10+ steps — without it `#10` sorts before `#2` alphabetically in some test explorers. Subclass these attributes to set shared defaults once. Note: C# does not allow a type nested inside a generic class to be used as an attribute (CS0416), so for CRTP template classes define the attribute outside the generic class. |
 | `TestChainOrderer` | `ITestCaseOrderer` that sorts tests by their `Link` value. Must be declared via `[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]` on each test class. |
 | `TestChainOutput` | `ConcurrentDictionary<string, object>` — shared state passed into every `Link*` lambda. |
 | `TestChainErrors` | Stack of `TestChainException` — accumulated failure history for the current fixture scope. |
 | `TestChainContextFixture` | Per-class fixture (`IClassFixture<T>`). Holds `Output` and `Errors`. |
-| `CollectionChainContextFixture` | Cross-collection fixture. `Output` is a `static` field shared across all collections; use globally unique keys or `TestOutput<TCollection, T>` wrappers. |
+| `CollectionChainContextFixture` | Cross-collection fixture. Both `Output` and `Errors` are **static** fields shared across all collections — unrelated collections that share this fixture will cross-contaminate error state; use separate fixture types to isolate them. |
+| `WorkflowChain` | Abstract base class (file: `CollectionChain.cs`). Subclass and override `Configure(IWorkflowBuilder)` for the source generator to read. |
+| `IWorkflowBuilder` | Fluent API (file: `IChainBuilder.cs`) for declaring topology: `Start<T>()`, `Then<T>()`, `End<T>()`, `After<T1>()`, `After<T1,T2>()`. None of these run at runtime — they exist only for the generator to parse. |
 | `CollectionChainSignalFixture<T>` | Registers collection T with the internal awaiter on construction; unregisters (signals done) on disposal. |
-| `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion. Four constructors (timeout / IMessageSink variants). |
-| `CollectionChainAwait<T>` | Single-constructor wrapper around `CollectionChainAwaitFixture<T>` for direct use in `ICollectionFixture<>` declarations. |
+| `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion (default 360-second timeout). Subclass this only when you need a custom timeout. |
+| `CollectionChainAwait<T>` | Use this directly in `ICollectionFixture<>` declarations (single constructor). Do not subclass — use `CollectionChainAwaitFixture<T>` for that. |
 | `CollectionChainNextFixture<TAwait, T>` | Combined: awaits TAwait then signals T. Replaces the separate signal + await two-fixture pattern. |
 | `CollectionChainStartDefinition<T>` | Abstract `[CollectionDefinition]` base for the first collection in a chain. Inherits Signal + Context fixtures. |
 | `CollectionChainNextDefinition<TAwait, T>` | Abstract `[CollectionDefinition]` base for middle collections. Inherits NextFixture + Context fixtures. |
-| `CollectionChainEndDefinition<TAwait>` | Abstract `[CollectionDefinition]` base for the last collection in a chain. Inherits Await + Context fixtures. |
+| `CollectionChainEndDefinition<TAwait>` | Abstract `[CollectionDefinition]` base for the last collection in a chain. Inherits Await + Context fixtures. Note: `End<T>()` in the generator API also signals itself, so downstream cross-flow collections can await this flow's completion. |
 
 ### Extension methods (the actual API)
 
@@ -79,7 +86,7 @@ public class MyAwait : CollectionChainAwaitFixture<ProducerCollection>;
 
 ### Reusable chain templates
 
-For running the same chain steps against multiple subjects (e.g. two clients), use the CRTP pattern: declare `abstract class CreateClientChain<TSelf>` and inherit as `class ClientA : CreateClientChain<ClientA>`. `TSelf` is used in `TestOutput<TSelf, T>` to auto-namespace output keys per instance. Put `[TestCaseOrderer]` on the abstract base — xUnit inherits it. See README "Reusable Chain Templates" and `src/Xchain.Tests/Templates/` for a full example.
+For running the same chain steps against multiple subjects (e.g. two clients), use the CRTP pattern: declare `abstract class CreateClientChain<TSelf>` and inherit as `class ClientA : CreateClientChain<ClientA>`. `TSelf` is used in `TestOutput<TSelf, T>` to auto-namespace output keys per instance. Put `[TestCaseOrderer]` on the abstract base — xUnit inherits it. See README "Reusable Chain Templates" and `src/Xchain.Tests.Templates/` for a full example.
 
 ### Strongly typed output keys
 
@@ -118,13 +125,13 @@ IServiceProvider Services { get; } = sp.Build((svc, cfg) => { ... });
 
 ### Source generators (Xchain.Generators)
 
-**`CollectionChainGenerator`** — finds `CollectionChain` subclasses, parses the `Configure(IChainBuilder)` fluent call chain, and emits `[Collection]` partial parts plus `[CollectionDefinition]` classes per step. Supports `.After<T1, T2>()` for multi-upstream dependencies.
+**`CollectionChainGenerator`** — finds `WorkflowChain` subclasses, parses the `Configure(IWorkflowBuilder)` fluent call chain, and emits `[Collection]` partial parts plus `[CollectionDefinition]` classes per step. Supports `.After<T1, T2>()` for multi-upstream dependencies. Emits diagnostic `XCHAIN001` if a step class appears in multiple chains.
 
 **`ChainOutputSchemaGenerator`** — finds types with `[ChainOutputSchema]`, emits typed `TestOutput<T, TProperty>` extension methods keyed by `nameof(SchemaClass.PropertyName)` — no magic strings.
 
 Usage:
 1. Declare a `[ChainOutputSchema]` POCO with typed properties → generator emits extension methods.
-2. Subclass `CollectionChain`, override `Configure(IChainBuilder b) => b.Start<T>().Then<T>().End<T>()`.
+2. Subclass `WorkflowChain`, override `Configure(IWorkflowBuilder b) => b.Start<T>().Then<T>().End<T>()`.
 3. Mark each step class `partial` — generator adds `[Collection]` and emits `[CollectionDefinition]`.
 
-Set `EmitCompilerGeneratedFiles=true` in the project to inspect generated files on disk.
+Set `EmitCompilerGeneratedFiles=true` in the project to inspect generated files on disk (already set in `Xchain.Tests.Templates`).

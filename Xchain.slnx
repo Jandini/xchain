@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/Xchain/Xchain.csproj" />
+  <Project Path="src/Xchain.Generators/Xchain.Generators.csproj" />
+  <Project Path="src/Xchain.DependencyInjection/Xchain.DependencyInjection.csproj" />
+  <Project Path="src/Xchain.Tests/Xchain.Tests.csproj" />
+  <Project Path="src/Xchain.Tests.Templates/Xchain.Tests.Templates.csproj" />
+</Solution>
