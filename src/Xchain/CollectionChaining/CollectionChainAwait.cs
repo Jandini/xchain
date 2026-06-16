@@ -9,7 +9,7 @@ namespace Xchain;
 /// <see cref="CollectionChainAwaitFixture{T}"/> exposes multiple public constructors (for custom timeouts
 /// and <c>IMessageSink</c> diagnostics). xUnit requires exactly one public constructor on any type
 /// registered via <see cref="ICollectionFixture{T}"/>. This sealed wrapper provides that guarantee
-/// by inheriting only the parameterless default, which uses a 360-second timeout.
+/// by inheriting only the parameterless default, which waits indefinitely.
 ///
 /// Use <see cref="CollectionChainAwaitFixture{T}"/> directly only when subclassing to supply a custom timeout:
 /// <code>

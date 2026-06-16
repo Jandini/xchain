@@ -19,6 +19,14 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    private static readonly DiagnosticDescriptor UnsupportedTimeoutShape = new(
+        id: "XCHAIN002",
+        title: "Unsupported timeout expression",
+        messageFormat: "The timeout argument in '{0}' must be a TimeSpan.FromX(constant) expression (e.g. TimeSpan.FromMinutes(5)). Use a fixture subclass for other timeout forms.",
+        category: "Xchain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var allChains = context.SyntaxProvider
@@ -50,6 +58,9 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
 
             foreach (var info in infos)
             {
+                foreach (var diag in info!.Diagnostics)
+                    ctx.ReportDiagnostic(diag);
+
                 var (hintName, source) = Generate(info!, duplicates);
                 ctx.AddSource(hintName, source);
             }
@@ -70,7 +81,8 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         if (configureMethod is null)
             return null;
 
-        var calls = ExtractCalls(configureMethod, ctx.SemanticModel, ct);
+        var diagnostics = new List<Diagnostic>();
+        var calls = ExtractCalls(configureMethod, ctx.SemanticModel, ct, diagnostics);
         if (calls.Count == 0)
             return null;
 
@@ -79,7 +91,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
             .Replace('.', '_')
             .Replace('<', '_').Replace('>', '_')
             .Replace(',', '_').Replace('+', '_');
-        return new ChainInfo(hintName, displayName, calls);
+        return new ChainInfo(hintName, displayName, calls, diagnostics);
     }
 
     private static bool IsCollectionChain(INamedTypeSymbol symbol)
@@ -98,7 +110,8 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
     private static List<CallInfo> ExtractCalls(
         MethodDeclarationSyntax method,
         SemanticModel semanticModel,
-        CancellationToken ct)
+        CancellationToken ct,
+        List<Diagnostic> diagnostics)
     {
         ExpressionSyntax? expr = method.ExpressionBody?.Expression;
         if (expr is null)
@@ -128,12 +141,43 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
                 }
             }
 
-            collected.Add(new CallInfo(methodName, types));
+            string? timeoutExpr = null;
+            if ((methodName == "Then" || methodName == "End") &&
+                invocation.ArgumentList.Arguments.Count > 0)
+            {
+                var arg = invocation.ArgumentList.Arguments[0];
+                timeoutExpr = NormalizeTimeSpanExpression(arg, semanticModel, ct);
+                if (timeoutExpr is null)
+                    diagnostics.Add(Diagnostic.Create(UnsupportedTimeoutShape, arg.GetLocation(), methodName));
+            }
+
+            collected.Add(new CallInfo(methodName, types, timeoutExpr));
             current = memberAccess.Expression;
         }
 
         collected.Reverse();
         return collected;
+    }
+
+    private static string? NormalizeTimeSpanExpression(ArgumentSyntax arg, SemanticModel model, CancellationToken ct)
+    {
+        if (arg.Expression is InvocationExpressionSyntax inv &&
+            inv.Expression is MemberAccessExpressionSyntax ma &&
+            ma.Expression is IdentifierNameSyntax id && id.Identifier.Text == "TimeSpan" &&
+            inv.ArgumentList.Arguments.Count == 1)
+        {
+            var innerArg = inv.ArgumentList.Arguments[0].Expression;
+            var constVal = model.GetConstantValue(innerArg, ct);
+            if (constVal.HasValue && constVal.Value is not null)
+            {
+                // Emit the resolved numeric value rather than the raw syntax text so that named
+                // constants (e.g. `const double N = 5`) resolve correctly in the generated file.
+                var valueStr = System.Convert.ToDouble(constVal.Value)
+                    .ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                return $"global::System.TimeSpan.{ma.Name.Identifier.Text}({valueStr})";
+            }
+        }
+        return null;
     }
 
     private static IEnumerable<string> GetPrimaryStepFqns(ChainInfo info)
@@ -168,7 +212,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
 
             var stepType = call.Types[0];
             var isStart = call.MethodName == "Start";
-            steps.Add(new StepDef(stepType, isStart, prev, new List<ITypeSymbol>(pendingAwaits)));
+            steps.Add(new StepDef(stepType, isStart, prev, new List<ITypeSymbol>(pendingAwaits), call.TimeoutExpression));
             pendingAwaits.Clear();
             prev = stepType;
         }
@@ -212,23 +256,70 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         sb.AppendLine($"{indent}[global::Xunit.CollectionAttribute(\"{collectionKey}\")]");
         sb.AppendLine($"{indent}public partial class {typeName} {{ }}");
         sb.AppendLine();
-        sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
 
         bool useInline = step.PendingAwaits.Count > 0;
 
         if (!useInline && step.IsStart)
         {
+            sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
             sb.AppendLine($"{indent}public class {typeName}Definition");
             sb.AppendLine($"{indent}    : global::Xchain.CollectionChainStartDefinition<{fqn}> {{ }}");
         }
         else if (!useInline)
         {
             var prevFqn = step.Prev!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            sb.AppendLine($"{indent}public class {typeName}Definition");
-            sb.AppendLine($"{indent}    : global::Xchain.CollectionChainNextDefinition<{prevFqn}, {fqn}> {{ }}");
+            if (step.TimeoutExpression is string timeoutExpr)
+            {
+                var helperName = $"__XchainTimeout_{typeName}NextFixture";
+                sb.AppendLine($"{indent}public sealed class {helperName}");
+                sb.AppendLine($"{indent}    : global::Xchain.CollectionChainNextFixture<{prevFqn}, {fqn}>");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    public {helperName}() : base({timeoutExpr}) {{ }}");
+                sb.AppendLine($"{indent}}}");
+                sb.AppendLine();
+                sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
+                sb.AppendLine($"{indent}public class {typeName}Definition");
+                sb.AppendLine($"{indent}    : global::Xunit.ICollectionFixture<{helperName}>");
+                sb.AppendLine($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.CollectionChainContextFixture> {{ }}");
+            }
+            else
+            {
+                sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
+                sb.AppendLine($"{indent}public class {typeName}Definition");
+                sb.AppendLine($"{indent}    : global::Xchain.CollectionChainNextDefinition<{prevFqn}, {fqn}> {{ }}");
+            }
         }
         else
         {
+            // For inline steps with a timeout, emit per-await fixture subclasses so each
+            // await respects the step-level timeout.
+            if (step.TimeoutExpression is string inlineTimeout)
+            {
+                foreach (var awaitType in step.PendingAwaits)
+                {
+                    var awaitFqn = awaitType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    var helperName = $"__XchainTimeout_{typeName}_{awaitType.Name}AwaitFixture";
+                    sb.AppendLine($"{indent}public sealed class {helperName}");
+                    sb.AppendLine($"{indent}    : global::Xchain.CollectionChainAwaitFixture<{awaitFqn}>");
+                    sb.AppendLine($"{indent}{{");
+                    sb.AppendLine($"{indent}    public {helperName}() : base({inlineTimeout}) {{ }}");
+                    sb.AppendLine($"{indent}}}");
+                    sb.AppendLine();
+                }
+                if (!step.IsStart && step.Prev is not null)
+                {
+                    var prevFqn = step.Prev.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    var helperName = $"__XchainTimeout_{typeName}_{step.Prev.Name}AwaitFixture";
+                    sb.AppendLine($"{indent}public sealed class {helperName}");
+                    sb.AppendLine($"{indent}    : global::Xchain.CollectionChainAwaitFixture<{prevFqn}>");
+                    sb.AppendLine($"{indent}{{");
+                    sb.AppendLine($"{indent}    public {helperName}() : base({inlineTimeout}) {{ }}");
+                    sb.AppendLine($"{indent}}}");
+                    sb.AppendLine();
+                }
+            }
+
+            sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
             sb.AppendLine($"{indent}public class {typeName}Definition");
             bool first = true;
 
@@ -236,7 +327,10 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
             {
                 var awaitFqn = awaitType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 var sep = first ? "    :" : "    ,";
-                sb.AppendLine($"{indent}{sep} global::Xunit.ICollectionFixture<global::Xchain.CollectionChainAwait<{awaitFqn}>>");
+                var fixtureName = step.TimeoutExpression is not null
+                    ? $"__XchainTimeout_{typeName}_{awaitType.Name}AwaitFixture"
+                    : $"global::Xchain.CollectionChainAwait<{awaitFqn}>";
+                sb.AppendLine($"{indent}{sep} global::Xunit.ICollectionFixture<{fixtureName}>");
                 first = false;
             }
 
@@ -244,7 +338,10 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
             {
                 var prevFqn = step.Prev.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 var sep = first ? "    :" : "    ,";
-                sb.AppendLine($"{indent}{sep} global::Xunit.ICollectionFixture<global::Xchain.CollectionChainAwait<{prevFqn}>>");
+                var fixtureName = step.TimeoutExpression is not null
+                    ? $"__XchainTimeout_{typeName}_{step.Prev.Name}AwaitFixture"
+                    : $"global::Xchain.CollectionChainAwait<{prevFqn}>";
+                sb.AppendLine($"{indent}{sep} global::Xunit.ICollectionFixture<{fixtureName}>");
                 first = false;
             }
 
@@ -256,7 +353,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         sb.AppendLine();
     }
 
-    private sealed record ChainInfo(string ClassName, string DisplayName, List<CallInfo> Calls);
-    private sealed record CallInfo(string MethodName, List<ITypeSymbol> Types);
-    private sealed record StepDef(ITypeSymbol Type, bool IsStart, ITypeSymbol? Prev, List<ITypeSymbol> PendingAwaits);
+    private sealed record ChainInfo(string ClassName, string DisplayName, List<CallInfo> Calls, List<Diagnostic> Diagnostics);
+    private sealed record CallInfo(string MethodName, List<ITypeSymbol> Types, string? TimeoutExpression = null);
+    private sealed record StepDef(ITypeSymbol Type, bool IsStart, ITypeSymbol? Prev, List<ITypeSymbol> PendingAwaits, string? TimeoutExpression = null);
 }
