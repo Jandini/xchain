@@ -184,7 +184,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
     {
         foreach (var call in info.Calls)
         {
-            if (call.MethodName == "After") continue;
+            if (call.MethodName is "After" or "WithWorkflowFixture") continue;
             if (call.Types.Count > 0)
                 yield return call.Types[0].ToDisplayString();
         }
@@ -198,6 +198,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         sb.AppendLine();
 
         var pendingAwaits = new List<ITypeSymbol>();
+        var workflowFixtures = new List<ITypeSymbol>();
         ITypeSymbol? prev = null;
         var steps = new List<StepDef>();
 
@@ -208,14 +209,22 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
                 pendingAwaits.AddRange(call.Types);
                 continue;
             }
+            if (call.MethodName == "WithWorkflowFixture")
+            {
+                workflowFixtures.AddRange(call.Types);
+                continue;
+            }
             if (call.Types.Count == 0) continue;
 
             var stepType = call.Types[0];
             var isStart = call.MethodName == "Start";
-            steps.Add(new StepDef(stepType, isStart, prev, new List<ITypeSymbol>(pendingAwaits), call.TimeoutExpression));
+            steps.Add(new StepDef(stepType, isStart, false, prev, new List<ITypeSymbol>(pendingAwaits), call.TimeoutExpression));
             pendingAwaits.Clear();
             prev = stepType;
         }
+
+        if (steps.Count > 0)
+            steps[steps.Count - 1] = steps[steps.Count - 1] with { IsLast = true };
 
         var byNs = steps
             .GroupBy(s => s.Type.ContainingNamespace?.ToDisplayString() ?? string.Empty)
@@ -233,7 +242,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
             }
 
             foreach (var step in nsGroup)
-                AppendStep(sb, step, hasNs ? "    " : "", duplicates);
+                AppendStep(sb, step, hasNs ? "    " : "", duplicates, workflowFixtures);
 
             if (hasNs)
                 sb.AppendLine("}");
@@ -244,7 +253,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         return ($"CollectionChain_{info.ClassName}.g.cs", sb.ToString());
     }
 
-    private static void AppendStep(StringBuilder sb, StepDef step, string indent, HashSet<string> duplicates)
+    private static void AppendStep(StringBuilder sb, StepDef step, string indent, HashSet<string> duplicates, List<ITypeSymbol> workflowFixtures)
     {
         var typeName = step.Type.Name;
         var fqn = step.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -262,8 +271,9 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
         if (!useInline && step.IsStart)
         {
             sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
-            sb.AppendLine($"{indent}public class {typeName}Definition");
-            sb.AppendLine($"{indent}    : global::Xchain.CollectionChainStartDefinition<{fqn}> {{ }}");
+            sb.AppendLine($"{indent}public partial class {typeName}Definition");
+            sb.Append($"{indent}    : global::Xchain.CollectionChainStartDefinition<{fqn}>");
+            CloseWithWorkflowFixtures(sb, indent, step, workflowFixtures);
         }
         else if (!useInline)
         {
@@ -278,15 +288,17 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
                 sb.AppendLine($"{indent}}}");
                 sb.AppendLine();
                 sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
-                sb.AppendLine($"{indent}public class {typeName}Definition");
+                sb.AppendLine($"{indent}public partial class {typeName}Definition");
                 sb.AppendLine($"{indent}    : global::Xunit.ICollectionFixture<{helperName}>");
-                sb.AppendLine($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.CollectionChainContextFixture> {{ }}");
+                sb.Append($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.CollectionChainContextFixture>");
+                CloseWithWorkflowFixtures(sb, indent, step, workflowFixtures);
             }
             else
             {
                 sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
-                sb.AppendLine($"{indent}public class {typeName}Definition");
-                sb.AppendLine($"{indent}    : global::Xchain.CollectionChainNextDefinition<{prevFqn}, {fqn}> {{ }}");
+                sb.AppendLine($"{indent}public partial class {typeName}Definition");
+                sb.Append($"{indent}    : global::Xchain.CollectionChainNextDefinition<{prevFqn}, {fqn}>");
+                CloseWithWorkflowFixtures(sb, indent, step, workflowFixtures);
             }
         }
         else
@@ -320,7 +332,7 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
             }
 
             sb.AppendLine($"{indent}[global::Xunit.CollectionDefinitionAttribute(\"{collectionKey}\")]");
-            sb.AppendLine($"{indent}public class {typeName}Definition");
+            sb.AppendLine($"{indent}public partial class {typeName}Definition");
             bool first = true;
 
             foreach (var awaitType in step.PendingAwaits)
@@ -347,13 +359,35 @@ public sealed class CollectionChainGenerator : IIncrementalGenerator
 
             var sigSep = first ? "    :" : "    ,";
             sb.AppendLine($"{indent}{sigSep} global::Xunit.ICollectionFixture<global::Xchain.CollectionChainSignalFixture<{fqn}>>");
-            sb.AppendLine($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.CollectionChainContextFixture> {{ }}");
+            sb.Append($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.CollectionChainContextFixture>");
+            CloseWithWorkflowFixtures(sb, indent, step, workflowFixtures);
         }
 
         sb.AppendLine();
     }
 
+    private static void CloseWithWorkflowFixtures(StringBuilder sb, string indent, StepDef step, List<ITypeSymbol> workflowFixtures)
+    {
+        if (workflowFixtures.Count == 0)
+        {
+            sb.AppendLine(" { }");
+            return;
+        }
+        foreach (var fixture in workflowFixtures)
+        {
+            var fixtureFqn = fixture.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            sb.AppendLine();
+            sb.Append($"{indent}    , global::Xunit.ICollectionFixture<{fixtureFqn}>");
+            if (step.IsLast)
+            {
+                sb.AppendLine();
+                sb.Append($"{indent}    , global::Xunit.ICollectionFixture<global::Xchain.DependencyInjection.WorkflowTeardownFixture<{fixtureFqn}>>");
+            }
+        }
+        sb.AppendLine(" { }");
+    }
+
     private sealed record ChainInfo(string ClassName, string DisplayName, List<CallInfo> Calls, List<Diagnostic> Diagnostics);
     private sealed record CallInfo(string MethodName, List<ITypeSymbol> Types, string? TimeoutExpression = null);
-    private sealed record StepDef(ITypeSymbol Type, bool IsStart, ITypeSymbol? Prev, List<ITypeSymbol> PendingAwaits, string? TimeoutExpression = null);
+    private sealed record StepDef(ITypeSymbol Type, bool IsStart, bool IsLast, ITypeSymbol? Prev, List<ITypeSymbol> PendingAwaits, string? TimeoutExpression = null);
 }

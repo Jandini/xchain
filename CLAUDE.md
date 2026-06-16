@@ -52,7 +52,7 @@ The solution contains four packages and one test-only project:
 | `TestChainContextFixture` | Per-class fixture (`IClassFixture<T>`). Holds `Output` and `Errors`. |
 | `CollectionChainContextFixture` | Cross-collection fixture. Both `Output` and `Errors` are **static** fields shared across all collections — unrelated collections that share this fixture will cross-contaminate error state; use separate fixture types to isolate them. |
 | `WorkflowChain` | Abstract base class (file: `CollectionChain.cs`). Subclass and override `Configure(IWorkflowBuilder)` for the source generator to read. |
-| `IWorkflowBuilder` | Fluent API (file: `IChainBuilder.cs`) for declaring topology: `Start<T>()`, `Then<T>(timeout?)`, `End<T>(timeout?)`, `After<T1>()`, `After<T1,T2>()`. None of these run at runtime — they exist only for the generator to parse. `Then` and `End` accept an optional `TimeSpan?` timeout (default: infinite). |
+| `IWorkflowBuilder` | Fluent API (file: `IChainBuilder.cs`) for declaring topology: `Start<T>()`, `Then<T>(timeout?)`, `End<T>(timeout?)`, `After<T1>()`, `After<T1,T2>()`, `WithWorkflowFixture<T>()`. None of these run at runtime — they exist only for the generator to parse. `Then` and `End` accept an optional `TimeSpan?` timeout (default: infinite). `WithWorkflowFixture<T>()` adds `ICollectionFixture<T>` to every step's generated `[CollectionDefinition]` and `ICollectionFixture<WorkflowTeardownFixture<T>>` to the last step; use this to keep a per-workflow DI provider alive across all steps (required for long-lived services like MassTransit buses). |
 | `CollectionChainSignalFixture<T>` | Registers collection T with the internal awaiter on construction; unregisters (signals done) on disposal. |
 | `CollectionChainAwaitFixture<T>` | Blocks fixture construction until T's collection signals completion (infinite wait by default). Subclass with a parameterless ctor calling `base(TimeSpan)` to impose a limit. |
 | `CollectionChainAwait<T>` | Use this directly in `ICollectionFixture<>` declarations (single constructor). Do not subclass — use `CollectionChainAwaitFixture<T>` for that. |
@@ -60,6 +60,9 @@ The solution contains four packages and one test-only project:
 | `CollectionChainStartDefinition<T>` | Abstract `[CollectionDefinition]` base for the first collection in a chain. Inherits Signal + Context fixtures. |
 | `CollectionChainNextDefinition<TAwait, T>` | Abstract `[CollectionDefinition]` base for middle collections. Inherits NextFixture + Context fixtures. |
 | `CollectionChainEndDefinition<TAwait>` | Abstract `[CollectionDefinition]` base for the last collection in a chain. Inherits Await + Context fixtures. Note: `End<T>()` in the generator API also signals itself, so downstream cross-flow collections can await this flow's completion. |
+
+
+Generator note: the emitted `[CollectionDefinition]` classes (`{StepName}Definition`) are `partial`, so users can declare additional `ICollectionFixture<>` interfaces alongside the generated file.
 
 ### Extension methods (the actual API)
 

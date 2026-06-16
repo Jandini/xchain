@@ -24,4 +24,13 @@ public interface IWorkflowBuilder
     /// allowing downstream cross-flow collections to await this flow's completion.</summary>
     /// <param name="timeout">Maximum time to wait for the previous step. <see langword="null"/> (default) waits indefinitely.</param>
     IWorkflowBuilder End<T>(TimeSpan? timeout = null);
+
+    /// <summary>
+    /// Declares a workflow-scoped DI fixture to be added as <c>ICollectionFixture&lt;T&gt;</c>
+    /// to every step's <c>[CollectionDefinition]</c> class. The generator also emits
+    /// <c>ICollectionFixture&lt;WorkflowTeardownFixture&lt;T&gt;&gt;</c> on the last step so the
+    /// hosted services are stopped after the final collection completes.
+    /// </summary>
+    /// <typeparam name="T">A <c>WorkflowServiceProviderFixture&lt;T&gt;</c> subclass unique to this workflow.</typeparam>
+    IWorkflowBuilder WithWorkflowFixture<T>();
 }

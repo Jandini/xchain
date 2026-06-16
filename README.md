@@ -423,6 +423,7 @@ public class MyWorkflow : WorkflowChain
 | `Then<T>(timeout?)` | Middle collection - awaits predecessor, signals itself |
 | `End<T>(timeout?)` | Last collection - awaits predecessor |
 | `After<T1>()` / `After<T1, T2>()` | Cross-workflow upstream dependencies |
+| `WithWorkflowFixture<T>()` | Adds `ICollectionFixture<T>` to every step; adds `ICollectionFixture<WorkflowTeardownFixture<T>>` to the last step |
 
 `Then` and `End` wait indefinitely by default. Pass a `TimeSpan` to bound the wait:
 
@@ -496,6 +497,89 @@ public class WorkflowC : WorkflowChain
         .Start<FlowC.Step_01_Project>();
 }
 ```
+
+### Workflow-scoped DI with `WithWorkflowFixture<T>()`
+
+By default each workflow step is its own xUnit collection and any `IClassFixture<ServiceProviderFixture>` on a step class is created and disposed with that step. For workflows that use long-lived services — such as a RabbitMQ consumer registered with MassTransit — this creates a gap between steps: when step N's service provider disposes and step N+1's hasn't started yet, another parallel workflow's bus may consume messages from the shared queue, leading to `No subscription matched` or `ObjectDisposedException`.
+
+`WithWorkflowFixture<T>()` solves this by keeping **one** `WorkflowServiceProviderFixture<T>` alive for the entire workflow. The generator adds `ICollectionFixture<T>` to every step's `[CollectionDefinition]` and `ICollectionFixture<WorkflowTeardownFixture<T>>` to the last step so hosted services are stopped gracefully after the final collection.
+
+```csharp
+// 1. Define a per-workflow DI fixture.
+//    Use CRTP (T : WorkflowServiceProviderFixture<T>) so each parallel workflow
+//    instance gets its own static IServiceProvider slot.
+public class ProcessOrdersFixture : WorkflowServiceProviderFixture<ProcessOrdersFixture>
+{
+    public ProcessOrdersFixture(IMessageSink sink) : base(sink) => Initialize();
+
+    protected override void ConfigureServices(IServiceCollection services, IConfiguration config)
+    {
+        // Register ALL consumers needed by ALL steps — the bus stays alive across steps.
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<OrderStatusConsumer>();
+            x.AddConsumer<PaymentResultConsumer>();
+            x.UsingRabbitMq((ctx, cfg) =>
+            {
+                // Use the fixture type name to create a unique queue per parallel workflow
+                // so parallel workflow instances don't compete for the same messages.
+                var queueSuffix = typeof(ProcessOrdersFixture).Name;
+                cfg.ReceiveEndpoint($"orders-{queueSuffix}", e =>
+                    e.ConfigureConsumers(ctx));
+                cfg.ConfigureEndpoints(ctx);
+            });
+        });
+    }
+}
+
+// 2. Declare the workflow — WithWorkflowFixture<T>() wires the fixture into every step.
+public class ProcessOrdersWorkflow : WorkflowChain
+{
+    protected override void Configure(IWorkflowBuilder b) => b
+        .WithWorkflowFixture<ProcessOrdersFixture>()
+        .Start<Step_01_PlaceOrder>()
+        .Then<Step_02_WaitForPayment>(TimeSpan.FromMinutes(2))
+        .End<Step_03_VerifyShipment>(TimeSpan.FromMinutes(5));
+}
+
+// 3. Step classes receive the fixture as a constructor parameter.
+[TestCaseOrderer("Xchain.TestChainOrderer", "Xchain")]
+public partial class Step_01_PlaceOrder(
+    CollectionChainContextFixture chain,
+    ProcessOrdersFixture fixture)
+{
+    [ChainFact(Link = 1, Name = "Submit order")]
+    public async Task PlaceOrder() =>
+        await fixture.LinkAsync(chain, async (sp, output, ct) =>
+        {
+            var bus = sp.GetRequiredService<IBus>();
+            var orderId = Guid.NewGuid();
+            await bus.Publish(new PlaceOrderCommand(orderId), ct);
+            output["OrderId"] = orderId;
+        });
+}
+```
+
+The generator emits for the last step:
+
+```csharp
+// auto-generated
+[CollectionDefinition("...Step_03_VerifyShipment")]
+public partial class Step_03_VerifyShipmentDefinition
+    : CollectionChainNextDefinition<Step_02_WaitForPayment, Step_03_VerifyShipment>
+    , ICollectionFixture<ProcessOrdersFixture>
+    , ICollectionFixture<WorkflowTeardownFixture<ProcessOrdersFixture>> { }
+```
+
+When running multiple parallel workflow instances, give each a unique `WorkflowServiceProviderFixture<TSelf>` subtype. The CRTP pattern ensures each has its own independent static `IServiceProvider`:
+
+```csharp
+// Two parallel workflows — ProcessOrdersA and ProcessOrdersB each get their own bus.
+public class ProcessOrdersA : ProcessOrdersFixture<ProcessOrdersA> { ... }
+public class ProcessOrdersB : ProcessOrdersFixture<ProcessOrdersB> { ... }
+```
+
+> **Generated definitions are `partial`**: if you need to add extra `ICollectionFixture<>` declarations beyond what the generator emits, declare them in a separate file in the same namespace using `partial class {StepName}Definition`.
 
 ---
 
